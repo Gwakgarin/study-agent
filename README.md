@@ -22,8 +22,24 @@ FAISS 인덱스   검색 결과 기반        SQLite (주제별
 - Python, OpenAI API (function calling)
 - FAISS — 노트 임베딩 검색
 - SQLite — 약점 주제 트래킹
-- Streamlit — UI
+- FastAPI — 백엔드 API (`server.py`)
+- React (Vite) — 프런트엔드 (`frontend/`)
+
+## 실행
+
+```bash
+# 백엔드
+source venv/bin/activate
+uvicorn server:app --reload
+
+# 프런트엔드 (다른 터미널)
+cd frontend
+npm install
+npm run dev
+```
+
+`.env`에 `OPENAI_API_KEY`를 설정해야 합니다 (`.env.example` 참고).
 
 ## 상태
 
-초기 스캐폴딩 단계, 아직 구현 전입니다.
+RAG 검색, 퀴즈 생성, 약점 트래킹 도구와 에이전트 루프 구현 완료. FastAPI + React 기반 UI로 개발 중입니다.

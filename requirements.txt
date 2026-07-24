@@ -1,6 +1,7 @@
 openai
 faiss-cpu
-streamlit
 pypdf
 python-dotenv
 numpy
+fastapi
+uvicorn[standard]

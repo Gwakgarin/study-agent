@@ -7,3 +7,6 @@ venv/
 data/notes/*
 !data/notes/.gitkeep
 data/index/
+
+frontend/node_modules/
+frontend/dist/
