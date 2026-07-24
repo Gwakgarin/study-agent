@@ -5,17 +5,16 @@ from pathlib import Path
 
 import faiss
 import numpy as np
-from dotenv import load_dotenv
 from openai import OpenAI
 from pypdf import PdfReader
 
-load_dotenv()
+from src.config import settings
 
 NOTES_DIR = Path(__file__).resolve().parent.parent / "data" / "notes"
 INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "index"
-EMBEDDING_MODEL = "text-embedding-3-small"
-CHUNK_SIZE = 800
-CHUNK_OVERLAP = 100
+EMBEDDING_MODEL = settings.embedding_model
+CHUNK_SIZE = settings.chunk_size
+CHUNK_OVERLAP = settings.chunk_overlap
 
 _client: OpenAI | None = None
 
@@ -23,7 +22,11 @@ _client: OpenAI | None = None
 def get_client() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI()
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not set. Copy .env.example to .env and add your key."
+            )
+        _client = OpenAI(api_key=settings.openai_api_key)
     return _client
 
 

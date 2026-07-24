@@ -2,12 +2,13 @@
 
 import json
 
+from src.config import settings
 from src.ingest import get_client
 from src.search import search_notes as _search_notes
 from src.tracker import get_weak_topics as _get_weak_topics
 from src.tracker import record_answer as _record_answer
 
-QUIZ_MODEL = "gpt-4o-mini"
+QUIZ_MODEL = settings.quiz_model
 
 
 def search_notes(query: str, k: int = 5) -> list[dict]:

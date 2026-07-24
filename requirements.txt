@@ -1,7 +1,7 @@
 openai
 faiss-cpu
 pypdf
-python-dotenv
+pydantic-settings
 numpy
 fastapi
 uvicorn[standard]

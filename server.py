@@ -7,13 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.agent import new_conversation, run_turn
+from src.config import settings
 from src.tools import get_weak_topics
 
 app = FastAPI(title="Study Agent API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

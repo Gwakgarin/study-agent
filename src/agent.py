@@ -2,10 +2,11 @@
 
 import json
 
+from src.config import settings
 from src.ingest import get_client
 from src.tools import TOOL_FUNCTIONS, TOOL_SCHEMAS
 
-CHAT_MODEL = "gpt-4o-mini"
+CHAT_MODEL = settings.chat_model
 
 SYSTEM_PROMPT = (
     "당신은 사용자의 공부를 도와주는 학습 에이전트입니다. "
