@@ -1,7 +1,6 @@
 """Query the FAISS index built by ingest.py."""
 
 import json
-from pathlib import Path
 
 import faiss
 import numpy as np
