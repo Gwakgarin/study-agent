@@ -1,9 +1,10 @@
 """SQLite-backed tracking of quiz answers, used to find weak topics to prioritize."""
 
 import sqlite3
-from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "tracker.db"
+from src.config import settings
+
+DB_PATH = settings.db_path
 
 
 def get_connection() -> sqlite3.Connection:

@@ -1,6 +1,10 @@
 """Typed application settings, loaded from environment variables / .env."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -16,6 +20,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
 
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    db_path: Path = PROJECT_ROOT / "data" / "tracker.db"
 
 
 settings = Settings()
