@@ -3,12 +3,22 @@ import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
-import { createSession, fetchWeakTopics, resetConversation, sendMessage } from "../api.js";
+import {
+  createSession,
+  fetchNotes,
+  fetchWeakTopics,
+  resetConversation,
+  sendMessage,
+  uploadNotes,
+} from "../api.js";
 
 export default function ChatApp() {
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [weakTopics, setWeakTopics] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,12 +26,32 @@ export default function ChatApp() {
   useEffect(() => {
     createSession().then((data) => setSessionId(data.session_id));
     refreshWeakTopics();
+    refreshNotes();
   }, []);
 
   function refreshWeakTopics() {
     fetchWeakTopics()
       .then(setWeakTopics)
       .catch(() => setWeakTopics([]));
+  }
+
+  function refreshNotes() {
+    fetchNotes()
+      .then(setNotes)
+      .catch(() => setNotes([]));
+  }
+
+  async function handleUpload(fileList) {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const updated = await uploadNotes(fileList);
+      setNotes(updated);
+    } catch (err) {
+      setUploadError(err.message || "업로드에 실패했어요.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSend(text) {
@@ -51,7 +81,11 @@ export default function ChatApp() {
     <div className="app-shell">
       <Sidebar
         weakTopics={weakTopics}
+        notes={notes}
         onReset={handleReset}
+        onUpload={handleUpload}
+        uploading={uploading}
+        uploadError={uploadError}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

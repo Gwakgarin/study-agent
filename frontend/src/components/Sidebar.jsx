@@ -27,7 +27,33 @@ function WeakTopicCard({ topic }) {
   );
 }
 
-export default function Sidebar({ weakTopics, onReset, isOpen, onClose }) {
+function NoteRow({ note }) {
+  return (
+    <div className="note-row">
+      <span className="note-name" title={note.source}>{note.source}</span>
+      <span className="note-chunks">{note.chunks}개 조각</span>
+    </div>
+  );
+}
+
+export default function Sidebar({
+  weakTopics,
+  notes,
+  onReset,
+  onUpload,
+  uploading,
+  uploadError,
+  isOpen,
+  onClose,
+}) {
+  function handleFileChange(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      onUpload(files);
+    }
+    e.target.value = "";
+  }
+
   return (
     <>
       <div
@@ -36,7 +62,7 @@ export default function Sidebar({ weakTopics, onReset, isOpen, onClose }) {
       />
       <aside className={`sidebar ${isOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-head">
-          <div className="sidebar-title">약점 주제</div>
+          <div className="sidebar-title">노트</div>
           <button
             type="button"
             className="sidebar-close"
@@ -46,6 +72,37 @@ export default function Sidebar({ weakTopics, onReset, isOpen, onClose }) {
             ×
           </button>
         </div>
+
+        <label className="upload-button">
+          {uploading ? "업로드 중..." : "노트 업로드"}
+          <input
+            type="file"
+            accept=".pdf,.md,.txt"
+            multiple
+            onChange={handleFileChange}
+            disabled={uploading}
+            hidden
+          />
+        </label>
+        {uploadError && <div className="upload-error">{uploadError}</div>}
+
+        {notes.length === 0 ? (
+          <div className="empty-state">
+            아직 업로드한 노트가 없어요.
+            <br />
+            PDF, 마크다운, 텍스트 파일을 올려보세요.
+          </div>
+        ) : (
+          <div className="note-list">
+            {notes.map((note) => (
+              <NoteRow key={note.source} note={note} />
+            ))}
+          </div>
+        )}
+
+        <hr className="divider" />
+
+        <div className="sidebar-title">약점 주제</div>
         {weakTopics.length === 0 ? (
           <div className="empty-state">
             아직 기록된 오답이 없어요.

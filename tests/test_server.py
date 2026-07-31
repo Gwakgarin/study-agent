@@ -1,8 +1,10 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src import sessions
+from src import ingest, sessions
 
 
 @pytest.fixture(autouse=True)
@@ -105,3 +107,56 @@ def test_weak_topics_endpoint_returns_500_on_error(client, monkeypatch):
     res = client.get("/api/weak-topics")
 
     assert res.status_code == 500
+
+
+def test_list_notes_returns_empty_when_no_index_yet(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(ingest, "INDEX_DIR", tmp_path / "index")
+
+    res = client.get("/api/notes")
+
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_notes_groups_chunks_by_source(client, tmp_path, monkeypatch):
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    metadata = [
+        {"source": "a.md", "chunk_index": 0, "text": "x"},
+        {"source": "a.md", "chunk_index": 1, "text": "y"},
+        {"source": "b.txt", "chunk_index": 0, "text": "z"},
+    ]
+    (index_dir / "metadata.json").write_text(json.dumps(metadata))
+    monkeypatch.setattr(ingest, "INDEX_DIR", index_dir)
+
+    res = client.get("/api/notes")
+
+    assert res.status_code == 200
+    assert res.json() == [{"source": "a.md", "chunks": 2}, {"source": "b.txt", "chunks": 1}]
+
+
+def test_upload_notes_rejects_unsupported_extension(client):
+    res = client.post("/api/notes", files=[("files", ("image.png", b"binary", "image/png"))])
+
+    assert res.status_code == 400
+    assert "image.png" in res.json()["detail"]
+
+
+def test_upload_notes_saves_files_and_rebuilds_index(client, tmp_path, monkeypatch, fake_openai_factory):
+    notes_dir = tmp_path / "notes"
+    index_dir = tmp_path / "index"
+    monkeypatch.setattr(ingest, "NOTES_DIR", notes_dir)
+    monkeypatch.setattr(ingest, "INDEX_DIR", index_dir)
+
+    fake_client = fake_openai_factory(vectors_by_text={"hello world": [1.0, 0.0]})
+    monkeypatch.setattr(ingest, "get_client", lambda: fake_client)
+
+    res = client.post(
+        "/api/notes",
+        files=[("files", ("note.txt", b"hello world", "text/plain"))],
+    )
+
+    assert res.status_code == 200
+    assert res.json() == [{"source": "note.txt", "chunks": 1}]
+    assert (notes_dir / "note.txt").read_text() == "hello world"
+    assert (index_dir / "notes.index").exists()
