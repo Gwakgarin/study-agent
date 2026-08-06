@@ -2,7 +2,7 @@ import json
 
 import faiss
 
-from src import ingest
+from src import ingest, projects
 
 
 def test_chunk_text_splits_with_overlap():
@@ -44,35 +44,32 @@ def test_embed_chunks_calls_client_and_returns_float32_array(monkeypatch, fake_o
 
 
 def test_build_index_writes_index_and_metadata(tmp_path, monkeypatch, fake_openai_factory):
-    notes_dir = tmp_path / "notes"
-    index_dir = tmp_path / "index"
-    notes_dir.mkdir()
-    (notes_dir / "a.md").write_text("first note content", encoding="utf-8")
-    (notes_dir / "ignored.png").write_bytes(b"not text")
-
-    monkeypatch.setattr(ingest, "NOTES_DIR", notes_dir)
-    monkeypatch.setattr(ingest, "INDEX_DIR", index_dir)
+    monkeypatch.setattr(projects, "PROJECTS_ROOT", tmp_path / "projects")
+    notes_path = projects.notes_dir("p1")
+    notes_path.mkdir(parents=True)
+    (notes_path / "a.md").write_text("first note content", encoding="utf-8")
+    (notes_path / "ignored.png").write_bytes(b"not text")
 
     fake_client = fake_openai_factory(vectors_by_text={"first note content": [1.0, 0.0]})
     monkeypatch.setattr(ingest, "get_client", lambda: fake_client)
 
-    ingest.build_index()
+    ingest.build_index("p1")
 
-    assert (index_dir / "notes.index").exists()
-    metadata = json.loads((index_dir / "metadata.json").read_text())
+    index_path = projects.index_dir("p1")
+    assert (index_path / "notes.index").exists()
+    metadata = json.loads((index_path / "metadata.json").read_text())
     assert metadata == [{"source": "a.md", "chunk_index": 0, "text": "first note content"}]
 
-    index = faiss.read_index(str(index_dir / "notes.index"))
+    index = faiss.read_index(str(index_path / "notes.index"))
     assert index.ntotal == 1
 
 
 def test_build_index_raises_when_no_notes(tmp_path, monkeypatch):
-    monkeypatch.setattr(ingest, "NOTES_DIR", tmp_path / "empty")
-    (tmp_path / "empty").mkdir()
-    monkeypatch.setattr(ingest, "INDEX_DIR", tmp_path / "index")
+    monkeypatch.setattr(projects, "PROJECTS_ROOT", tmp_path / "projects")
+    projects.notes_dir("empty-project").mkdir(parents=True)
 
     try:
-        ingest.build_index()
+        ingest.build_index("empty-project")
         assert False, "expected SystemExit"
     except SystemExit as exc:
         assert "No notes found" in str(exc)

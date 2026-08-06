@@ -1,5 +1,6 @@
 """Tool definitions (OpenAI function-calling schemas + implementations) for the study agent."""
 
+import functools
 import json
 
 from src.config import settings
@@ -11,12 +12,12 @@ from src.tracker import record_answer as _record_answer
 QUIZ_MODEL = settings.quiz_model
 
 
-def search_notes(query: str, k: int = 5) -> list[dict]:
-    return _search_notes(query, k=k)
+def search_notes(project_id: str, query: str, k: int = 5) -> list[dict]:
+    return _search_notes(project_id, query, k=k)
 
 
-def generate_quiz(topic: str, difficulty: str = "medium") -> dict:
-    chunks = _search_notes(topic, k=3)
+def generate_quiz(project_id: str, topic: str, difficulty: str = "medium") -> dict:
+    chunks = _search_notes(project_id, topic, k=3)
     if not chunks:
         return {"error": f"'{topic}'에 대한 노트를 찾지 못했습니다. 먼저 관련 노트를 색인했는지 확인하세요."}
 
@@ -38,13 +39,13 @@ def generate_quiz(topic: str, difficulty: str = "medium") -> dict:
     return json.loads(response.choices[0].message.content)
 
 
-def record_answer(topic: str, correct: bool) -> dict:
-    _record_answer(topic, correct)
+def record_answer(project_id: str, topic: str, correct: bool) -> dict:
+    _record_answer(project_id, topic, correct)
     return {"recorded": True, "topic": topic, "correct": correct}
 
 
-def get_weak_topics() -> list[dict]:
-    return _get_weak_topics()
+def get_weak_topics(project_id: str) -> list[dict]:
+    return _get_weak_topics(project_id)
 
 
 TOOL_SCHEMAS = [
@@ -107,9 +108,12 @@ TOOL_SCHEMAS = [
     },
 ]
 
-TOOL_FUNCTIONS = {
-    "search_notes": search_notes,
-    "generate_quiz": generate_quiz,
-    "record_answer": record_answer,
-    "get_weak_topics": get_weak_topics,
-}
+
+def build_tool_functions(project_id: str) -> dict:
+    """Bind each tool to a specific project so the model never has to name one itself."""
+    return {
+        "search_notes": functools.partial(search_notes, project_id),
+        "generate_quiz": functools.partial(generate_quiz, project_id),
+        "record_answer": functools.partial(record_answer, project_id),
+        "get_weak_topics": functools.partial(get_weak_topics, project_id),
+    }

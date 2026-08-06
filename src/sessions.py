@@ -15,6 +15,7 @@ def get_connection() -> sqlite3.Connection:
         """
         CREATE TABLE IF NOT EXISTS sessions (
             session_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
             messages TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
@@ -23,20 +24,30 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def save_session(session_id: str, messages: list[dict]) -> None:
+def save_session(session_id: str, project_id: str, messages: list[dict]) -> None:
     conn = get_connection()
     with conn:
         conn.execute(
             """
-            INSERT INTO sessions (session_id, messages, updated_at)
-            VALUES (?, ?, datetime('now'))
+            INSERT INTO sessions (session_id, project_id, messages, updated_at)
+            VALUES (?, ?, ?, datetime('now'))
             ON CONFLICT(session_id) DO UPDATE SET
+                project_id = excluded.project_id,
                 messages = excluded.messages,
                 updated_at = excluded.updated_at
             """,
-            (session_id, json.dumps(messages, ensure_ascii=False)),
+            (session_id, project_id, json.dumps(messages, ensure_ascii=False)),
         )
     conn.close()
+
+
+def get_project_id(session_id: str) -> str | None:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT project_id FROM sessions WHERE session_id = ?", (session_id,)
+    ).fetchone()
+    conn.close()
+    return row[0] if row else None
 
 
 def load_session(session_id: str) -> list[dict] | None:

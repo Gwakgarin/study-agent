@@ -511,6 +511,96 @@ body {
   color: var(--accent);
 }
 
+/* ---- projects page ---- */
+.projects-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.75rem 4rem;
+  min-height: 100vh;
+}
+
+.projects-content {
+  padding-top: 2rem;
+}
+
+.projects-content h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.6rem 0;
+}
+
+.projects-sub {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 2rem 0;
+  max-width: 60ch;
+}
+
+.project-create {
+  display: flex;
+  gap: 0.7rem;
+  margin-bottom: 1.2rem;
+}
+
+.project-create input {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.project-create input::placeholder {
+  color: var(--text-muted);
+}
+
+.project-create input:focus {
+  border-color: var(--accent);
+}
+
+.project-create button {
+  white-space: nowrap;
+}
+
+.projects-empty {
+  margin-top: 0.5rem;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.project-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 1.3rem 1.4rem;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.project-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.project-card-name {
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--text-primary);
+}
+
 /* ---- landing page ---- */
 .landing {
   max-width: 1080px;
@@ -833,6 +923,43 @@ body {
 .final-cta p {
   color: var(--text-secondary);
   margin: 0 0 1.6rem 0;
+}
+
+/* ---- scroll to top ---- */
+.scroll-top-button {
+  position: fixed;
+  right: 1.75rem;
+  bottom: 1.75rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(26, 22, 48, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px -12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 30;
+}
+
+.scroll-top-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.scroll-top-button:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
 /* ---- footer ---- */

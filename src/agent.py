@@ -4,7 +4,7 @@ import json
 
 from src.config import settings
 from src.ingest import get_client
-from src.tools import TOOL_FUNCTIONS, TOOL_SCHEMAS
+from src.tools import TOOL_SCHEMAS, build_tool_functions
 
 CHAT_MODEL = settings.chat_model
 
@@ -22,9 +22,10 @@ def new_conversation() -> list[dict]:
     return [{"role": "system", "content": SYSTEM_PROMPT}]
 
 
-def run_turn(messages: list[dict]) -> list[dict]:
+def run_turn(messages: list[dict], project_id: str) -> list[dict]:
     """Run one assistant turn, including any tool calls, appending to messages."""
     client = get_client()
+    tool_functions = build_tool_functions(project_id)
 
     while True:
         response = client.chat.completions.create(
@@ -41,7 +42,7 @@ def run_turn(messages: list[dict]) -> list[dict]:
         for tool_call in message.tool_calls:
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments or "{}")
-            func = TOOL_FUNCTIONS.get(name)
+            func = tool_functions.get(name)
             result = func(**args) if func else {"error": f"Unknown tool: {name}"}
             messages.append(
                 {

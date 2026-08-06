@@ -11,34 +11,49 @@ async function request(path, options) {
   return res.json();
 }
 
-export function createSession() {
-  return request("/session", { method: "POST" });
+export function createProject(name) {
+  return request("/projects", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
 }
 
-export function sendMessage(sessionId, message) {
+export function fetchProjects() {
+  return request("/projects", { method: "GET" });
+}
+
+export function createSession(projectId) {
+  return request("/session", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId }),
+  });
+}
+
+export function sendMessage(sessionId, projectId, message) {
   return request("/chat", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({ session_id: sessionId, project_id: projectId, message }),
   });
 }
 
-export function resetConversation(sessionId) {
+export function resetConversation(sessionId, projectId) {
   return request("/reset", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify({ session_id: sessionId, project_id: projectId }),
   });
 }
 
-export function fetchWeakTopics() {
-  return request("/weak-topics", { method: "GET" });
+export function fetchWeakTopics(projectId) {
+  return request(`/weak-topics?project_id=${encodeURIComponent(projectId)}`, { method: "GET" });
 }
 
-export function fetchNotes() {
-  return request("/notes", { method: "GET" });
+export function fetchNotes(projectId) {
+  return request(`/notes?project_id=${encodeURIComponent(projectId)}`, { method: "GET" });
 }
 
-export async function uploadNotes(fileList) {
+export async function uploadNotes(projectId, fileList) {
   const body = new FormData();
+  body.append("project_id", projectId);
   for (const file of fileList) {
     body.append("files", file);
   }

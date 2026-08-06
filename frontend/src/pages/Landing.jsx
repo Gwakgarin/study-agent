@@ -1,5 +1,31 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
+
+function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    function handleScroll() {
+      setVisible(window.scrollY > window.innerHeight * 0.6);
+    }
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      className={`scroll-top-button ${visible ? "visible" : ""}`}
+      aria-label="맨 위로"
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
 
 const FEATURES = [
   {
@@ -85,10 +111,6 @@ export default function Landing() {
     <div className="landing">
       <nav className="navbar">
         <Logo size={28} />
-        <div className="nav-links">
-          <a href="#features">기능</a>
-          <a href="#how">사용법</a>
-        </div>
         <Link to="/app" className="btn-primary btn-small">
           시작하기
         </Link>
@@ -199,6 +221,8 @@ export default function Landing() {
         <Logo size={22} />
         <span>© 2026 Recap. 개인 학습을 위한 프로젝트입니다.</span>
       </footer>
+
+      <ScrollToTopButton />
     </div>
   );
 }

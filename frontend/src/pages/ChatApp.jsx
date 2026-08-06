@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
 import {
   createSession,
   fetchNotes,
+  fetchProjects,
   fetchWeakTopics,
   resetConversation,
   sendMessage,
@@ -13,6 +14,8 @@ import {
 } from "../api.js";
 
 export default function ChatApp() {
+  const { projectId } = useParams();
+  const [projectName, setProjectName] = useState("");
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [weakTopics, setWeakTopics] = useState([]);
@@ -24,19 +27,29 @@ export default function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    createSession().then((data) => setSessionId(data.session_id));
+    createSession(projectId).then((data) => {
+      setSessionId(data.session_id);
+      setMessages(data.messages);
+    });
+    fetchProjects()
+      .then((list) => {
+        const match = list.find((p) => p.id === projectId);
+        if (match) setProjectName(match.name);
+      })
+      .catch(() => {});
     refreshWeakTopics();
     refreshNotes();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   function refreshWeakTopics() {
-    fetchWeakTopics()
+    fetchWeakTopics(projectId)
       .then(setWeakTopics)
       .catch(() => setWeakTopics([]));
   }
 
   function refreshNotes() {
-    fetchNotes()
+    fetchNotes(projectId)
       .then(setNotes)
       .catch(() => setNotes([]));
   }
@@ -45,7 +58,7 @@ export default function ChatApp() {
     setUploading(true);
     setUploadError(null);
     try {
-      const updated = await uploadNotes(fileList);
+      const updated = await uploadNotes(projectId, fileList);
       setNotes(updated);
     } catch (err) {
       setUploadError(err.message || "업로드에 실패했어요.");
@@ -60,7 +73,7 @@ export default function ChatApp() {
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setLoading(true);
     try {
-      const data = await sendMessage(sessionId, text);
+      const data = await sendMessage(sessionId, projectId, text);
       setMessages(data.messages);
       refreshWeakTopics();
     } catch (err) {
@@ -72,7 +85,7 @@ export default function ChatApp() {
 
   async function handleReset() {
     if (!sessionId) return;
-    await resetConversation(sessionId);
+    await resetConversation(sessionId, projectId);
     setMessages([]);
     setSidebarOpen(false);
   }
@@ -101,12 +114,10 @@ export default function ChatApp() {
               <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
             </svg>
           </button>
-          <Link to="/" className="topbar-logo">
+          <Link to="/app" className="topbar-logo">
             <Logo size={26} />
           </Link>
-          <p className="topbar-subtitle">
-            노트를 검색해서 답하고, 약점 주제를 우선 복습하는 학습 파트너
-          </p>
+          <p className="topbar-subtitle">{projectName || "학습 파트너"}</p>
         </header>
         {error && <div className="error-banner">{error}</div>}
         <ChatWindow messages={messages} loading={loading} onSend={handleSend} />

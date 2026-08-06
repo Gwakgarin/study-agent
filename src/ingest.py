@@ -1,4 +1,4 @@
-"""Load notes from data/notes/, chunk them, embed with OpenAI, and build a FAISS index."""
+"""Load a project's notes, chunk them, embed with OpenAI, and build its FAISS index."""
 
 import json
 from pathlib import Path
@@ -9,9 +9,8 @@ from openai import OpenAI
 from pypdf import PdfReader
 
 from src.config import settings
+from src.projects import index_dir, notes_dir
 
-NOTES_DIR = Path(__file__).resolve().parent.parent / "data" / "notes"
-INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "index"
 EMBEDDING_MODEL = settings.embedding_model
 CHUNK_SIZE = settings.chunk_size
 CHUNK_OVERLAP = settings.chunk_overlap
@@ -53,10 +52,11 @@ def embed_chunks(chunks: list[str]) -> np.ndarray:
     return np.array(vectors, dtype="float32")
 
 
-def build_index() -> None:
-    source_paths = [p for p in NOTES_DIR.rglob("*") if p.suffix.lower() in (".pdf", ".md", ".txt")]
+def build_index(project_id: str) -> None:
+    notes_path = notes_dir(project_id)
+    source_paths = [p for p in notes_path.rglob("*") if p.suffix.lower() in (".pdf", ".md", ".txt")]
     if not source_paths:
-        raise SystemExit(f"No notes found in {NOTES_DIR} — add PDF/Markdown/text files first.")
+        raise SystemExit(f"No notes found in {notes_path} — add PDF/Markdown/text files first.")
 
     metadata = []
     all_chunks = []
@@ -72,9 +72,10 @@ def build_index() -> None:
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
 
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
-    faiss.write_index(index, str(INDEX_DIR / "notes.index"))
-    (INDEX_DIR / "metadata.json").write_text(
+    index_path = index_dir(project_id)
+    index_path.mkdir(parents=True, exist_ok=True)
+    faiss.write_index(index, str(index_path / "notes.index"))
+    (index_path / "metadata.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2)
     )
 
@@ -82,4 +83,8 @@ def build_index() -> None:
 
 
 if __name__ == "__main__":
-    build_index()
+    import sys
+
+    if len(sys.argv) != 2:
+        raise SystemExit("Usage: python -m src.ingest <project_id>")
+    build_index(sys.argv[1])

@@ -5,15 +5,15 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src import ingest, search
+from src import ingest, projects, search
 from src.agent import new_conversation, run_turn
 from src.config import settings
 from src.sessions import load_session, save_session
-from src.tools import get_weak_topics
+from src.tracker import get_due_topics, get_weak_topics
 
 ALLOWED_NOTE_EXTENSIONS = {".pdf", ".md", ".txt"}
 
@@ -35,49 +35,81 @@ def _visible(messages: list[dict]) -> list[dict]:
     ]
 
 
+class CreateProjectRequest(BaseModel):
+    name: str
+
+
+class SessionRequest(BaseModel):
+    project_id: str
+
+
 class ChatRequest(BaseModel):
     session_id: str
+    project_id: str
     message: str
 
 
 class ResetRequest(BaseModel):
     session_id: str
+    project_id: str
+
+
+@app.post("/api/projects")
+def create_project(req: CreateProjectRequest):
+    return projects.create_project(req.name)
+
+
+@app.get("/api/projects")
+def list_projects():
+    return projects.list_projects()
 
 
 @app.post("/api/session")
-def create_session():
+def create_session(req: SessionRequest):
     session_id = str(uuid.uuid4())
-    save_session(session_id, new_conversation())
-    return {"session_id": session_id, "messages": []}
+    messages = new_conversation()
+
+    due = get_due_topics(req.project_id)
+    if due:
+        topic_list = ", ".join(t["topic"] for t in due[:3])
+        messages.append(
+            {
+                "role": "assistant",
+                "content": f"오늘 복습하면 좋을 주제가 있어요: {topic_list}. 퀴즈 볼까요?",
+            }
+        )
+
+    save_session(session_id, req.project_id, messages)
+    return {"session_id": session_id, "messages": _visible(messages)}
 
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     messages = load_session(req.session_id) or new_conversation()
     messages.append({"role": "user", "content": req.message})
-    messages = run_turn(messages)
-    save_session(req.session_id, messages)
+    messages = run_turn(messages, req.project_id)
+    save_session(req.session_id, req.project_id, messages)
     return {"messages": _visible(messages)}
 
 
 @app.post("/api/reset")
 def reset(req: ResetRequest):
     messages = new_conversation()
-    save_session(req.session_id, messages)
+    save_session(req.session_id, req.project_id, messages)
     return {"messages": []}
 
 
 @app.get("/api/weak-topics")
-def weak_topics():
+def weak_topics(project_id: str):
     try:
-        return get_weak_topics()
+        return get_weak_topics(project_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api/notes")
-def list_notes():
-    metadata_path = ingest.INDEX_DIR / "metadata.json"
+def list_notes(project_id: str):
+    metadata_path = projects.index_dir(project_id) / "metadata.json"
     if not metadata_path.exists():
         return []
 
@@ -89,7 +121,7 @@ def list_notes():
 
 
 @app.post("/api/notes")
-async def upload_notes(files: list[UploadFile] = File(...)):
+async def upload_notes(project_id: str = Form(...), files: list[UploadFile] = File(...)):
     if not files:
         raise HTTPException(status_code=400, detail="업로드할 파일이 없습니다.")
 
@@ -100,18 +132,17 @@ async def upload_notes(files: list[UploadFile] = File(...)):
                 detail=f"지원하지 않는 파일 형식입니다: {file.filename} (pdf, md, txt만 가능)",
             )
 
-    ingest.NOTES_DIR.mkdir(parents=True, exist_ok=True)
+    notes_dir = projects.notes_dir(project_id)
+    notes_dir.mkdir(parents=True, exist_ok=True)
     for file in files:
-        with (ingest.NOTES_DIR / file.filename).open("wb") as dest:
+        with (notes_dir / file.filename).open("wb") as dest:
             shutil.copyfileobj(file.file, dest)
 
     try:
-        ingest.build_index()
+        ingest.build_index(project_id)
     except SystemExit as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # the search module caches the loaded index at module scope; force a reload
-    search._index = None
-    search._metadata = None
+    search.invalidate(project_id)
 
-    return list_notes()
+    return list_notes(project_id)
