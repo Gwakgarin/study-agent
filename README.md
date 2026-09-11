@@ -23,11 +23,11 @@ RAG로 내 노트를 검색하고, 약점 주제를 우선 출제하고, SM-2 �
 
 ## 📸 스크린샷
 
+![랜딩 페이지 스크롤 데모](docs/screenshots/landing-demo.gif)
+
 | 과목 선택 | 학습 채팅 |
 |---|---|
 | ![과목 선택](docs/screenshots/projects.png) | ![채팅 화면](docs/screenshots/chat.png) |
-
-![랜딩 페이지](docs/screenshots/landing.png)
 
 ## 🎯 핵심 기능
 
