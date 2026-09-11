@@ -2,6 +2,25 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 
+function useScrollReveal() {
+  useEffect(() => {
+    const els = document.querySelectorAll(".reveal");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("reveal-in");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
 function ScrollToTopButton() {
   const [visible, setVisible] = useState(false);
 
@@ -107,6 +126,8 @@ const FAQS = [
 ];
 
 export default function Landing() {
+  useScrollReveal();
+
   return (
     <div className="landing">
       <nav className="navbar">
@@ -119,11 +140,20 @@ export default function Landing() {
       <header className="hero-landing">
         <div className="hero-copy">
           <div className="eyebrow">AI 학습 코치</div>
-          <h1>
-            노트를 다시 훑어보는
-            <br />
-            가장 똑똑한 방법
-          </h1>
+          <div className="headline-wrap">
+            <h1>
+              노트를 다시 훑어보는
+              <br />
+              <mark className="marker">
+                <span className="rotate-handle" />
+                <span className="handle handle-tl" />
+                <span className="handle handle-tr" />
+                <span className="handle handle-bl" />
+                <span className="handle handle-br" />
+                가장 똑똑한 방법
+              </mark>
+            </h1>
+          </div>
           <p>
             Recap은 여러분의 공부 노트를 검색해서 답하고, 틀린 주제를 기억해뒀다가
             다음 퀴즈에서 우선 출제하는 학습 에이전트예요.
@@ -160,7 +190,11 @@ export default function Landing() {
         </p>
         <div className="problem-grid">
           {PROBLEMS.map((p, i) => (
-            <div className="problem-card" key={p.title}>
+            <div
+              className="problem-card reveal"
+              key={p.title}
+              style={{ transitionDelay: `${i * 70}ms` }}
+            >
               <div className="problem-mark">{i + 1}</div>
               <div>
                 <h3>{p.title}</h3>
@@ -174,8 +208,12 @@ export default function Landing() {
       <section className="features" id="features">
         <h2>학습을 도와주는 세 가지 방법</h2>
         <div className="features-grid">
-          {FEATURES.map((f) => (
-            <div className="feature-card" key={f.title}>
+          {FEATURES.map((f, i) => (
+            <div
+              className="feature-card reveal"
+              key={f.title}
+              style={{ transitionDelay: `${i * 80}ms` }}
+            >
               <div className="feature-icon">{f.icon}</div>
               <h3>{f.title}</h3>
               <p>{f.desc}</p>
@@ -187,8 +225,12 @@ export default function Landing() {
       <section className="steps" id="how">
         <h2>사용 방법</h2>
         <div className="steps-grid">
-          {STEPS.map((s) => (
-            <div className="step-card" key={s.n}>
+          {STEPS.map((s, i) => (
+            <div
+              className="step-card reveal"
+              key={s.n}
+              style={{ transitionDelay: `${i * 80}ms` }}
+            >
               <div className="step-number">{s.n}</div>
               <h3>{s.title}</h3>
               <p>{s.desc}</p>
@@ -200,8 +242,12 @@ export default function Landing() {
       <section className="faq">
         <h2>자주 묻는 질문</h2>
         <div className="faq-list">
-          {FAQS.map((f) => (
-            <div className="faq-item" key={f.q}>
+          {FAQS.map((f, i) => (
+            <div
+              className="faq-item reveal"
+              key={f.q}
+              style={{ transitionDelay: `${i * 60}ms` }}
+            >
               <h3>{f.q}</h3>
               <p>{f.a}</p>
             </div>
@@ -209,7 +255,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="final-cta">
+      <section className="final-cta reveal">
         <h2>오늘부터 노트를 다시 훑어보세요</h2>
         <p>가입 없이 바로 시작해서, 첫 질문과 첫 퀴즈까지 1분이면 충분해요.</p>
         <Link to="/app" className="btn-primary">

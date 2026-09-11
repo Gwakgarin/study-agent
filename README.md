@@ -21,6 +21,19 @@ RAG로 내 노트를 검색하고, 약점 주제를 우선 출제하고, SM-2 �
 
 과목(프로젝트) 단위로 노트·인덱스·학습 기록을 분리 관리하며, OpenAI function calling으로 에이전트가 검색·퀴즈 생성·기록 도구를 스스로 호출합니다.
 
+## 📸 스크린샷
+
+| 랜딩 페이지 | 학습 채팅 |
+|---|---|
+| ![랜딩 페이지](docs/screenshots/landing.png) | ![채팅 화면](docs/screenshots/chat.png) |
+
+<details>
+<summary>과목 선택 화면</summary>
+
+![과목 선택](docs/screenshots/projects.png)
+
+</details>
+
 ## 🎯 핵심 기능
 
 | | 기능 |
@@ -187,4 +200,4 @@ pytest -q
 
 ## 📌 상태
 
-RAG 검색, 퀴즈 생성, 약점 트래킹, SM-2 복습 스케줄링, 세션 영속화까지 구현 완료. FastAPI + React 기반 UI를 계속 확장 중입니다.
+RAG 검색, 퀴즈 생성, 약점 트래킹, SM-2 복습 스케줄링, 세션 영속화까지 구현 완료. 다크 테마 + 스크롤 리빌 애니메이션을 적용한 랜딩 페이지로 UI를 리디자인했고, FastAPI + React 기반 UI를 계속 확장 중입니다.
