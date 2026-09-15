@@ -35,6 +35,21 @@ def test_topic_with_a_wrong_answer_appears_with_correct_rate():
     }
 
 
+def test_low_attempt_topic_does_not_outrank_reliable_weak_topic():
+    """A single wrong answer (1/1 = 100%) is a weaker signal than 9 wrong
+    out of 10 attempts (90%), so the ranking should not put the 1-attempt
+    topic first just because its raw wrong_rate is higher."""
+    tracker.record_answer("p1", "one-shot", False)  # 1 attempt, 1 wrong -> 100%
+
+    for _ in range(9):
+        tracker.record_answer("p1", "reliable", False)
+    tracker.record_answer("p1", "reliable", True)  # 10 attempts, 9 wrong -> 90%
+
+    topics = tracker.get_weak_topics("p1")
+
+    assert [t["topic"] for t in topics] == ["reliable", "one-shot"]
+
+
 def test_weak_topics_ordered_by_wrong_rate_desc():
     tracker.record_answer("p1", "low", False)
     tracker.record_answer("p1", "low", True)
