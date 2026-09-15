@@ -91,12 +91,26 @@ def record_answer(project_id: str, topic: str, correct: bool) -> None:
     conn.close()
 
 
+def _adjusted_wrong_rate(wrong: int, attempts: int) -> float:
+    """Laplace (add-one) smoothed wrong rate.
+
+    Raw wrong_rate treats a single miss (1/1 = 100%) as a stronger signal
+    than 9 misses out of 10 (90%), even though the second has far more
+    evidence behind it. Adding one hypothetical right and one hypothetical
+    wrong answer before any real data pulls low-attempt topics toward 50%,
+    so a topic needs more attempts behind it to rank as a top weak spot.
+    wrong_rate itself is left untouched for display — only ranking uses this.
+    """
+    return (wrong + 1) / (attempts + 2)
+
+
 def get_weak_topics(project_id: str, limit: int = 5) -> list[dict]:
-    """Return topics ordered by wrong-answer rate, worst first.
+    """Return topics ranked by adjusted_wrong_rate, worst first.
 
     Topics answered only once are included so a single miss on a new
-    topic still surfaces, but topics with more attempts are considered
-    more reliable signals than one-off answers.
+    topic still surfaces, but the ranking discounts topics with few
+    attempts so they don't outrank topics with more, worse, evidence.
+    See _adjusted_wrong_rate for the smoothing this relies on.
     """
     conn = get_connection()
     rows = conn.execute(
@@ -110,17 +124,23 @@ def get_weak_topics(project_id: str, limit: int = 5) -> list[dict]:
         WHERE project_id = ?
         GROUP BY topic
         HAVING wrong > 0
-        ORDER BY wrong_rate DESC, attempts DESC
-        LIMIT ?
         """,
-        (project_id, limit),
+        (project_id,),
     ).fetchall()
     conn.close()
 
-    return [
-        {"topic": r[0], "attempts": r[1], "wrong": r[2], "wrong_rate": r[3]}
+    topics = [
+        {
+            "topic": r[0],
+            "attempts": r[1],
+            "wrong": r[2],
+            "wrong_rate": r[3],
+            "adjusted_wrong_rate": _adjusted_wrong_rate(r[2], r[1]),
+        }
         for r in rows
     ]
+    topics.sort(key=lambda t: (-t["adjusted_wrong_rate"], -t["attempts"], t["topic"]))
+    return topics[:limit]
 
 
 def get_due_topics(project_id: str) -> list[dict]:

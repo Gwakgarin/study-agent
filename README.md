@@ -75,7 +75,7 @@ study-agent/
 │   └── src/
 │       ├── pages/                # Landing, ChatApp, Projects
 │       └── components/           # ChatWindow, ChatMessage, Sidebar, Logo
-├── tests/                       # pytest (66개 테스트)
+├── tests/                       # pytest (73개 테스트)
 ├── data/                        # SQLite DB, 프로젝트별 노트/인덱스 (gitignored)
 └── .github/workflows/            # CI: ruff lint + pytest + frontend build
 ```
@@ -119,6 +119,10 @@ erDiagram
 ```
 
 > `SCHEDULE`의 PK는 `(project_id, topic)` 복합키입니다. 정답이면 반복 횟수가 늘고 간격이 늘어나고(ease factor 최대 3.0), 오답이면 반복이 0으로 리셋되고 간격이 1일로 줄어듭니다 (`src/tracker.py`의 `_next_schedule`).
+
+## 📉 약점 주제 랭킹
+
+`get_weak_topics`는 화면에 보여줄 `wrong_rate`(실제 오답률)와, 정렬에만 쓰는 `adjusted_wrong_rate`를 따로 계산합니다. 시도 1회에 오답 1회(100%)인 주제가 시도 10회에 오답 9회(90%)인 주제보다 raw wrong_rate로는 높게 나오지만, 표본이 하나뿐이라 신뢰도가 낮습니다. `adjusted_wrong_rate = (wrong + 1) / (attempts + 2)` (add-one/Laplace 스무딩)으로 시도 횟수가 적을수록 50%에 가깝게 당겨서, 정렬에서만 이 값을 쓰고 화면에 보이는 `wrong_rate`는 그대로 둡니다 (`src/tracker.py`의 `_adjusted_wrong_rate`).
 
 ## 🛠 기술 스택
 

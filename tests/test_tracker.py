@@ -32,6 +32,7 @@ def test_topic_with_a_wrong_answer_appears_with_correct_rate():
         "attempts": 3,
         "wrong": 2,
         "wrong_rate": pytest.approx(2 / 3),
+        "adjusted_wrong_rate": pytest.approx(3 / 5),
     }
 
 
@@ -62,6 +63,47 @@ def test_weak_topics_ordered_by_wrong_rate_desc():
     topics = tracker.get_weak_topics("p1")
 
     assert [t["topic"] for t in topics] == ["high", "low"]
+
+
+@pytest.mark.parametrize(
+    "attempts,expected_adjusted",
+    [
+        (1, 2 / 3),   # (1+1)/(1+2)
+        (2, 3 / 4),   # (2+1)/(2+2)
+        (5, 6 / 7),   # (5+1)/(5+2)
+        (10, 11 / 12),  # (10+1)/(10+2)
+    ],
+)
+def test_adjusted_wrong_rate_approaches_raw_rate_as_attempts_grow(attempts, expected_adjusted):
+    """All-wrong topics keep a raw wrong_rate of 100% regardless of sample size,
+    but the adjusted score should climb toward that 100% as attempts pile up —
+    i.e. more evidence should pull the smoothing discount down, not up."""
+    for _ in range(attempts):
+        tracker.record_answer("p1", "topic", False)
+
+    topics = tracker.get_weak_topics("p1")
+
+    assert topics[0]["wrong_rate"] == pytest.approx(1.0)
+    assert topics[0]["adjusted_wrong_rate"] == pytest.approx(expected_adjusted)
+
+
+def test_topic_with_no_wrong_answers_is_excluded_even_with_many_attempts():
+    for _ in range(10):
+        tracker.record_answer("p1", "always-right", True)
+
+    assert tracker.get_weak_topics("p1") == []
+
+
+def test_tied_adjusted_rate_breaks_ties_deterministically_by_topic_name():
+    """Two topics with identical wrong/attempts (and thus identical
+    adjusted_wrong_rate) should still come back in a stable, predictable
+    order rather than depending on SQLite's incidental row order."""
+    tracker.record_answer("p1", "zeta", False)
+    tracker.record_answer("p1", "alpha", False)
+
+    topics = tracker.get_weak_topics("p1")
+
+    assert [t["topic"] for t in topics] == ["alpha", "zeta"]
 
 
 def test_get_weak_topics_respects_limit():
