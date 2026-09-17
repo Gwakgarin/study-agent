@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 Recap (Stduy Agent) 
+# 🧠 Recap (Study Agent)
 
 **노트를 읽고, 퀴즈를 내고, 내가 뭘 틀렸는지 기억하는 학습 에이전트**
 
