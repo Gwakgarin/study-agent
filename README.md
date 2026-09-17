@@ -40,6 +40,33 @@ RAG로 내 노트를 검색하고, 약점 주제를 우선 출제하고, SM-2 �
 | 📁 | 과목(프로젝트)별로 노트/인덱스/학습 기록 분리 |
 | 💬 | 대화 세션을 SQLite에 저장해 재시작해도 이어서 대화 |
 
+## 📊 데이터 기준 개선
+
+### 문제
+SQLD 학습에 Recap을 2주 이상 직접 사용하던 중, 1회 시도해 1회 틀린 주제가 10회 시도해 9회 틀린 주제보다 더 큰 약점으로 정렬되는 것을 발견했습니다.
+
+### 원인
+오답률(`wrong_rate`) 계산 자체는 정확했지만, 표본 수가 다른 주제를 동일한 기준으로 비교하고 있었습니다. 시도 1회인 주제는 우연히 한 번 틀렸을 뿐이어도 오답률이 100%로 계산돼, 시도 10회 중 9회 틀린 주제(90%)보다 순위가 높아졌습니다.
+
+### 개선
+이 상황을 실패 테스트로 먼저 재현한 뒤, 시도 횟수가 적을 때는 극단적인 비율을 완화하는 보정값을 정렬 기준에 도입했습니다.
+
+```python
+adjusted_wrong_rate = (wrong + 1) / (attempts + 2)
+```
+
+화면에 보여주는 `wrong_rate`(실제 오답률)는 그대로 유지하고, 약점 주제 **정렬에만** `adjusted_wrong_rate`(보정 점수)를 사용합니다.
+
+| 주제 | 시도/오답 | wrong_rate (화면 표시) | adjusted_wrong_rate (정렬 기준) |
+|---|---:|---:|---:|
+| A | 1회/1회 | 100% | 66.7% |
+| B | 10회/9회 | 90% | 83.3% |
+
+보정 후에는 B가 A보다 높은 순위로 정렬됩니다.
+
+### 검증
+표본 증가, 오답 0회, 동률, 저표본 주제가 고표본 약점을 역전하지 않는지 등 경계 조건을 테스트로 추가하고, 전체 회귀 테스트와 CI로 기존 기능에 영향이 없는지 확인했습니다 (`src/tracker.py`의 `_adjusted_wrong_rate`, `tests/test_tracker.py`).
+
 ## 🏗 에이전트 동작 흐름
 
 ```mermaid
@@ -71,7 +98,7 @@ study-agent/
 │   ├── projects.py              # 프로젝트(과목) CRUD
 │   ├── sessions.py              # 대화 세션 저장/로드
 │   └── config.py                # pydantic-settings 기반 설정
-├── frontend/                   # React (Vite) 프런트엔드
+├── frontend/                   # React (Vite) 프론트엔드
 │   └── src/
 │       ├── pages/                # Landing, ChatApp, Projects
 │       └── components/           # ChatWindow, ChatMessage, Sidebar, Logo
@@ -120,10 +147,6 @@ erDiagram
 
 > `SCHEDULE`의 PK는 `(project_id, topic)` 복합키입니다. 정답이면 반복 횟수가 늘고 간격이 늘어나고(ease factor 최대 3.0), 오답이면 반복이 0으로 리셋되고 간격이 1일로 줄어듭니다 (`src/tracker.py`의 `_next_schedule`).
 
-## 📉 약점 주제 랭킹
-
-`get_weak_topics`는 화면에 보여줄 `wrong_rate`(실제 오답률)와, 정렬에만 쓰는 `adjusted_wrong_rate`를 따로 계산합니다. 시도 1회에 오답 1회(100%)인 주제가 시도 10회에 오답 9회(90%)인 주제보다 raw wrong_rate로는 높게 나오지만, 표본이 하나뿐이라 신뢰도가 낮습니다. `adjusted_wrong_rate = (wrong + 1) / (attempts + 2)` (add-one/Laplace 스무딩)으로 시도 횟수가 적을수록 50%에 가깝게 당겨서, 정렬에서만 이 값을 쓰고 화면에 보이는 `wrong_rate`는 그대로 둡니다 (`src/tracker.py`의 `_adjusted_wrong_rate`).
-
 ## 🛠 기술 스택
 
 | 영역 | 기술 |
@@ -157,7 +180,7 @@ cp .env.example .env
 uvicorn server:app --reload
 ```
 
-### 프런트엔드
+### 프론트엔드
 
 ```bash
 cd frontend
@@ -165,7 +188,7 @@ npm install
 npm run dev
 ```
 
-프런트엔드는 기본적으로 `http://localhost:5173`에서 실행되고, `cors_origins` 설정으로 백엔드와 통신합니다 (`src/config.py`).
+프론트엔드는 기본적으로 `http://localhost:5173`에서 실행되고, `cors_origins` 설정으로 백엔드와 통신합니다 (`src/config.py`).
 
 ### 노트 색인 (CLI)
 
@@ -195,7 +218,9 @@ ruff check .
 pytest -q
 ```
 
-`main` 브랜치 push/PR마다 GitHub Actions에서 백엔드 lint+test, 프런트엔드 빌드를 검증합니다 (`.github/workflows/`).
+pytest 73개로 약점 주제 순위·보정 점수, SM-2 복습 간격(정답/오답에 따른 다음 복습 시점), 프로젝트별 노트·학습 기록 분리, 대화 세션 저장·조회, 빈 인덱스/빈 학습 기록 처리, API 엔드포인트 동작을 검증합니다 (`tests/`, 9개 모듈).
+
+`main` 브랜치 push/PR마다 GitHub Actions에서 Ruff lint, pytest, 프론트엔드 빌드를 검증합니다 (`.github/workflows/`).
 
 ## 📌 상태
 
