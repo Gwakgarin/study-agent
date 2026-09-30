@@ -7,6 +7,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src import ingest, projects, search
@@ -146,3 +148,21 @@ async def upload_notes(project_id: str = Form(...), files: list[UploadFile] = Fi
     search.invalidate(project_id)
 
     return list_notes(project_id)
+
+
+# In the Docker image the built React app sits next to the API, so one server
+# handles both. Locally (npm run dev) the dist folder is absent and Vite serves it.
+FRONTEND_DIST = Path(__file__).resolve().parent / "frontend" / "dist"
+
+if FRONTEND_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(FRONTEND_DIST):
+            return FileResponse(candidate)
+        # React Router paths like /app/<id> fall back to index.html.
+        return FileResponse(FRONTEND_DIST / "index.html")

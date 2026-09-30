@@ -190,6 +190,17 @@ npm run dev
 
 프론트엔드는 기본적으로 `http://localhost:5173`에서 실행되고, `cors_origins` 설정으로 백엔드와 통신합니다 (`src/config.py`).
 
+### Docker로 실행
+
+```bash
+cp .env.example .env
+# .env에 OPENAI_API_KEY 입력
+
+docker compose up --build
+```
+
+`http://localhost:8000`에서 바로 사용할 수 있습니다. 이미지 빌드 단계에서 React를 빌드하고, FastAPI가 API와 빌드된 화면을 함께 서빙합니다. 노트·FAISS 인덱스·학습 기록(`data/`)은 볼륨으로 연결돼 컨테이너를 다시 만들어도 유지됩니다.
+
 ### 노트 색인 (CLI)
 
 ```bash
