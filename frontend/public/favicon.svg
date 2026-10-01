@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="18" fill="#B4FF39"/>
-  <g transform="translate(10,10) scale(1.9)" stroke="#0E0F08" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <rect width="64" height="64" rx="18" fill="#FFD43B"/>
+  <g transform="translate(10,10) scale(1.9)" stroke="#11100A" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <polyline points="23 4 23 10 17 10" />
     <polyline points="1 20 1 14 7 14" />
     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
