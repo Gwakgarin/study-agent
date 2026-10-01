@@ -1,4 +1,4 @@
-openai
+openai>=2.53,<3
 faiss-cpu
 pypdf
 pydantic-settings
