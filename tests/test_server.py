@@ -210,3 +210,65 @@ def test_upload_notes_saves_files_and_rebuilds_index(client, monkeypatch, fake_o
     assert res.json() == [{"source": "note.txt", "chunks": 1}]
     assert (projects.notes_dir("p1") / "note.txt").read_text() == "hello world"
     assert (projects.index_dir("p1") / "notes.index").exists()
+
+
+def _openai_error(kind):
+    import httpx
+    import openai
+
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    if kind == "timeout":
+        return openai.APITimeoutError(request=request)
+    if kind == "connection":
+        return openai.APIConnectionError(request=request)
+    status = {"rate_limit": 429, "auth": 401, "server": 500}[kind]
+    cls = {
+        "rate_limit": openai.RateLimitError,
+        "auth": openai.AuthenticationError,
+        "server": openai.InternalServerError,
+    }[kind]
+    return cls("error", response=httpx.Response(status, request=request), body=None)
+
+
+@pytest.mark.parametrize(
+    "kind, expected_status",
+    [("timeout", 504), ("rate_limit", 429), ("connection", 503), ("auth", 500), ("server", 502)],
+)
+def test_chat_maps_openai_failures_to_clear_errors(client, monkeypatch, kind, expected_status):
+    def failing_run_turn(messages, project_id):
+        raise _openai_error(kind)
+
+    monkeypatch.setattr(server, "run_turn", failing_run_turn)
+    session_id = client.post("/api/session", json={"project_id": "p1"}).json()["session_id"]
+
+    res = client.post("/api/chat", json={"session_id": session_id, "project_id": "p1", "message": "hi"})
+
+    assert res.status_code == expected_status
+    assert res.json()["detail"]
+
+
+def test_failed_chat_leaves_saved_session_unchanged(client, monkeypatch):
+    _stub_run_turn(monkeypatch, reply="first reply")
+    session_id = client.post("/api/session", json={"project_id": "p1"}).json()["session_id"]
+    client.post("/api/chat", json={"session_id": session_id, "project_id": "p1", "message": "first"})
+    before = sessions.load_session(session_id)
+
+    def failing_run_turn(messages, project_id):
+        raise _openai_error("timeout")
+
+    monkeypatch.setattr(server, "run_turn", failing_run_turn)
+    res = client.post("/api/chat", json={"session_id": session_id, "project_id": "p1", "message": "second"})
+
+    assert res.status_code == 504
+    assert sessions.load_session(session_id) == before
+
+
+def test_chat_returns_502_when_tool_loop_never_finishes(client, monkeypatch):
+    def looping_run_turn(messages, project_id):
+        raise server.ToolLoopError("no final answer")
+
+    monkeypatch.setattr(server, "run_turn", looping_run_turn)
+
+    res = client.post("/api/chat", json={"session_id": "s1", "project_id": "p1", "message": "hi"})
+
+    assert res.status_code == 502

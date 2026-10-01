@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from src import agent
 from tests.conftest import FakeOpenAI, make_message_response, make_tool_call_response
 
@@ -80,3 +82,56 @@ def test_run_turn_binds_tools_to_the_given_project(monkeypatch):
     agent.run_turn(agent.new_conversation(), "biology-101")
 
     assert seen_project_ids == ["biology-101"]
+
+
+def test_run_turn_passes_tool_exception_back_to_model(monkeypatch):
+    fake_client = FakeOpenAI(
+        chat_responses=[
+            make_tool_call_response([("call_1", "search_notes", json.dumps({"query": "x"}))]),
+            make_message_response("노트를 불러오지 못했어요"),
+        ]
+    )
+    monkeypatch.setattr(agent, "get_client", lambda: fake_client)
+
+    def broken_search(query):
+        raise FileNotFoundError("index missing")
+
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": broken_search})
+
+    result = agent.run_turn(agent.new_conversation(), "p1")
+
+    tool_message = next(m for m in result if m["role"] == "tool")
+    assert json.loads(tool_message["content"]) == {"error": "search_notes failed: index missing"}
+    assert result[-1]["content"] == "노트를 불러오지 못했어요"
+
+
+def test_run_turn_reports_invalid_tool_arguments(monkeypatch):
+    fake_client = FakeOpenAI(
+        chat_responses=[
+            make_tool_call_response([("call_1", "search_notes", "{not json")]),
+            make_message_response("done"),
+        ]
+    )
+    monkeypatch.setattr(agent, "get_client", lambda: fake_client)
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": lambda query: []})
+
+    result = agent.run_turn(agent.new_conversation(), "p1")
+
+    tool_message = next(m for m in result if m["role"] == "tool")
+    assert json.loads(tool_message["content"]) == {"error": "search_notes: arguments were not valid JSON"}
+
+
+def test_run_turn_stops_when_model_never_stops_calling_tools(monkeypatch):
+    monkeypatch.setattr(agent.settings, "max_tool_rounds", 3)
+    fake_client = FakeOpenAI(
+        chat_responses=[
+            make_tool_call_response([(f"call_{i}", "search_notes", "{}")]) for i in range(5)
+        ]
+    )
+    monkeypatch.setattr(agent, "get_client", lambda: fake_client)
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": lambda: []})
+
+    with pytest.raises(agent.ToolLoopError):
+        agent.run_turn(agent.new_conversation(), "p1")
+
+    assert len(fake_client.chat.completions.calls) == 3

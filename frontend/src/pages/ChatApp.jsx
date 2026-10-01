@@ -68,16 +68,21 @@ export default function ChatApp() {
   }
 
   async function handleSend(text) {
-    if (!sessionId) return;
+    if (!sessionId) return false;
     setError(null);
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    const before = messages;
+    setMessages([...before, { role: "user", content: text }]);
     setLoading(true);
     try {
       const data = await sendMessage(sessionId, projectId, text);
       setMessages(data.messages);
       refreshWeakTopics();
+      return true;
     } catch (err) {
-      setError("응답을 가져오지 못했어요. 서버가 켜져 있는지 확인해주세요.");
+      // The server did not save this message, so take it back off the screen too.
+      setMessages(before);
+      setError(err.message || "응답을 가져오지 못했어요. 서버가 켜져 있는지 확인해주세요.");
+      return false;
     } finally {
       setLoading(false);
     }

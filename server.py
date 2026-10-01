@@ -9,10 +9,17 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 from pydantic import BaseModel
 
 from src import ingest, projects, search
-from src.agent import new_conversation, run_turn
+from src.agent import ToolLoopError, new_conversation, run_turn
 from src.config import settings
 from src.sessions import load_session, save_session
 from src.tracker import get_due_topics, get_weak_topics
@@ -85,11 +92,33 @@ def create_session(req: SessionRequest):
     return {"session_id": session_id, "messages": _visible(messages)}
 
 
+def _chat_failure(exc: Exception) -> HTTPException:
+    # Order matters: APITimeoutError is a subclass of APIConnectionError.
+    if isinstance(exc, APITimeoutError):
+        return HTTPException(504, "AI 응답이 너무 오래 걸려요. 잠시 후 다시 보내주세요.")
+    if isinstance(exc, RateLimitError):
+        return HTTPException(429, "요청이 몰려서 지금은 답할 수 없어요. 잠시 후 다시 보내주세요.")
+    if isinstance(exc, APIConnectionError):
+        return HTTPException(503, "AI 서버에 연결하지 못했어요. 네트워크를 확인하고 다시 보내주세요.")
+    if isinstance(exc, AuthenticationError):
+        return HTTPException(500, "서버의 OpenAI API 키 설정에 문제가 있어요.")
+    if isinstance(exc, APIStatusError):
+        return HTTPException(502, "AI 서버에서 오류가 났어요. 잠시 후 다시 보내주세요.")
+    if isinstance(exc, ToolLoopError):
+        return HTTPException(502, "답변을 정리하지 못했어요. 질문을 조금 바꿔서 다시 보내주세요.")
+    return HTTPException(500, "답변을 만드는 중 오류가 났어요.")
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     messages = load_session(req.session_id) or new_conversation()
     messages.append({"role": "user", "content": req.message})
-    messages = run_turn(messages, req.project_id)
+    try:
+        messages = run_turn(messages, req.project_id)
+    except Exception as exc:
+        # Nothing is saved, so the stored session stays exactly as it was before
+        # this message and the client can resend it.
+        raise _chat_failure(exc) from exc
     save_session(req.session_id, req.project_id, messages)
     return {"messages": _visible(messages)}
 

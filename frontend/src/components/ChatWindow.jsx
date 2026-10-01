@@ -38,12 +38,14 @@ export default function ChatWindow({ messages, loading, onSend }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || loading) return;
-    onSend(trimmed);
     setInput("");
+    const sent = await onSend(trimmed);
+    // Put the text back so a failed message can be resent without retyping it.
+    if (sent === false) setInput(trimmed);
   }
 
   return (

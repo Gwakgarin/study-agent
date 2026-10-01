@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     chat_model: str = "gpt-4o-mini"
     quiz_model: str = "gpt-4o-mini"
 
+    # The OpenAI SDK already retries connection errors, 429 and 5xx with backoff.
+    openai_timeout_seconds: float = 30.0
+    openai_max_retries: int = 2
+    max_tool_rounds: int = 6
+
     chunk_size: int = 800
     chunk_overlap: int = 100
 
