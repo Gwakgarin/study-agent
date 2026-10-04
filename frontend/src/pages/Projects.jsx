@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
-import { createProject, fetchProjects } from "../api.js";
+import { useUser } from "../components/RequireAuth.jsx";
+import { AuthRequiredError, createProject, fetchProjects, logout } from "../api.js";
 
 export default function Projects() {
   const navigate = useNavigate();
+  const user = useUser();
   const [projects, setProjects] = useState(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -25,11 +27,20 @@ export default function Projects() {
     try {
       const project = await createProject(trimmed);
       navigate(`/app/${project.id}`);
-    } catch {
+    } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        navigate("/login", { replace: true });
+        return;
+      }
       setError("프로젝트를 만들지 못했어요. 서버가 켜져 있는지 확인해주세요.");
     } finally {
       setCreating(false);
     }
+  }
+
+  async function handleLogout() {
+    await logout().catch(() => {});
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -38,6 +49,12 @@ export default function Projects() {
         <Link to="/">
           <Logo size={28} />
         </Link>
+        <div className="nav-user">
+          <span>{user.username}</span>
+          <button type="button" onClick={handleLogout}>
+            로그아웃
+          </button>
+        </div>
       </nav>
 
       <div className="projects-content">

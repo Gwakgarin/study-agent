@@ -1204,3 +1204,111 @@ mark.marker {
     max-width: 85%;
   }
 }
+
+/* ---- login / signup ---- */
+.auth-card {
+  max-width: 400px;
+  margin: 2.5rem auto 0;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 1.6rem;
+  box-shadow: var(--card-highlight);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0.4rem;
+  background: var(--surface-alt);
+  border-radius: 12px;
+  padding: 0.3rem;
+}
+
+.auth-tabs button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.6rem;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.auth-tabs button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.auth-sub {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin: 1rem 0 1.2rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.auth-form input {
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.auth-form input:focus {
+  border-color: var(--accent);
+}
+
+.auth-form .error-banner {
+  margin-bottom: 0;
+}
+
+.auth-form button[type="submit"] {
+  margin-top: 0.3rem;
+  cursor: pointer;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.nav-user button {
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.nav-user button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

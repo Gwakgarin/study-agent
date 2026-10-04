@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
 import {
+  AuthRequiredError,
   createSession,
   fetchNotes,
   fetchProjects,
@@ -15,6 +16,7 @@ import {
 
 export default function ChatApp() {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const [projectName, setProjectName] = useState("");
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -27,10 +29,19 @@ export default function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    createSession(projectId).then((data) => {
-      setSessionId(data.session_id);
-      setMessages(data.messages);
-    });
+    createSession(projectId)
+      .then((data) => {
+        setSessionId(data.session_id);
+        setMessages(data.messages);
+      })
+      .catch((err) => {
+        if (err instanceof AuthRequiredError) {
+          navigate("/login", { replace: true, state: { from: `/app/${projectId}` } });
+        } else {
+          // Not this user's project (or it no longer exists): back to the project list.
+          navigate("/app", { replace: true });
+        }
+      });
     fetchProjects()
       .then((list) => {
         const match = list.find((p) => p.id === projectId);
@@ -61,6 +72,10 @@ export default function ChatApp() {
       const updated = await uploadNotes(projectId, fileList);
       setNotes(updated);
     } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        navigate("/login", { replace: true, state: { from: `/app/${projectId}` } });
+        return;
+      }
       setUploadError(err.message || "업로드에 실패했어요.");
     } finally {
       setUploading(false);
@@ -81,6 +96,10 @@ export default function ChatApp() {
     } catch (err) {
       // The server did not save this message, so take it back off the screen too.
       setMessages(before);
+      if (err instanceof AuthRequiredError) {
+        navigate("/login", { replace: true, state: { from: `/app/${projectId}` } });
+        return false;
+      }
       setError(err.message || "응답을 가져오지 못했어요. 서버가 켜져 있는지 확인해주세요.");
       return false;
     } finally {

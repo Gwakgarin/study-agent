@@ -39,6 +39,7 @@ RAG로 내 노트를 검색하고, 약점 주제를 우선 출제하고, SM-2 �
 | 🔁 | SM-2 간이 알고리즘으로 다음 복습 시점 계산, 로그인 시 복습 대상 주제 안내 |
 | 📁 | 과목(프로젝트)별로 노트/인덱스/학습 기록 분리 |
 | 💬 | 대화 세션을 SQLite에 저장해 재시작해도 이어서 대화 |
+| 🔐 | 회원가입·로그인으로 사용자마다 과목·노트·기록 분리, 계정별 사용량 제한 |
 
 ## 📊 데이터 기준 개선
 
@@ -95,7 +96,9 @@ study-agent/
 │   ├── ingest.py                # 노트 청크 분할 → 임베딩 → FAISS 인덱스 생성
 │   ├── search.py                # FAISS 인덱스 검색 (프로젝트별 캐시)
 │   ├── tracker.py               # 정답/오답 기록 + SM-2 간이 복습 스케줄
-│   ├── projects.py              # 프로젝트(과목) CRUD
+│   ├── auth.py                  # 회원가입·로그인 (scrypt 해시, 세션 토큰)
+│   ├── usage.py                 # 계정별 시간당 질문 수 제한
+│   ├── projects.py              # 프로젝트(과목) CRUD, 사용자별 소유
 │   ├── sessions.py              # 대화 세션 저장/로드
 │   └── config.py                # pydantic-settings 기반 설정
 ├── frontend/                   # React (Vite) 프론트엔드
@@ -103,14 +106,14 @@ study-agent/
 │       ├── pages/                # Landing, ChatApp, Projects
 │       └── components/           # ChatWindow, ChatMessage, Sidebar, Logo
 ├── eval/                        # RAG 품질 평가 (SQLD 노트 6개, 질문 38개, 결과 JSON)
-├── tests/                       # pytest (96개 테스트)
+├── tests/                       # pytest (116개 테스트)
 ├── data/                        # SQLite DB, 프로젝트별 노트/인덱스 (gitignored)
 └── .github/workflows/            # CI: ruff lint + pytest + frontend build
 ```
 
 ## 🗄 데이터 모델
 
-SQLite (`data/tracker.db`)에 프로젝트, 퀴즈 답변 기록, 복습 스케줄을 저장합니다.
+SQLite (`data/tracker.db`)에 사용자, 프로젝트, 퀴즈 답변 기록, 복습 스케줄을 저장합니다. 프로젝트는 `user_id`로 사용자에게 속하고, 모든 API는 요청한 사용자가 그 프로젝트의 주인인지 확인합니다. 비밀번호는 scrypt 해시로, 로그인 토큰은 SHA-256 해시로만 저장합니다.
 
 ```mermaid
 erDiagram
@@ -209,11 +212,13 @@ Docker 이미지를 그대로 배포합니다. SQLite와 FAISS 인덱스가 있�
 ```bash
 fly launch --no-deploy --copy-config        # 앱 이름은 fly.toml의 app 값
 fly volumes create recap_data --size 1 --region nrt
-fly secrets set OPENAI_API_KEY=... ACCESS_PASSWORD=...
+fly secrets set OPENAI_API_KEY=... SIGNUP_CODE=...
 fly deploy
 ```
 
-`ACCESS_PASSWORD`를 설정하면 헬스체크(`/api/health`)를 뺀 모든 요청에 HTTP Basic 인증이 걸립니다. 공개 URL로 OpenAI 키가 소모되는 것을 막기 위한 장치이고, 브라우저가 로그인 창을 띄운 뒤 같은 출처 요청에 자격 증명을 계속 붙여 보내므로 프론트엔드 수정은 필요 없습니다.
+계정마다 과목·노트·학습 기록이 분리됩니다. `SIGNUP_CODE`를 설정하면 그 코드를 아는 사람만 가입할 수 있어 공개 URL에서 OpenAI 비용이 새지 않고, 계정마다 시간당 질문 수(`CHAT_LIMIT_PER_HOUR`)와 업로드 크기·개수도 제한됩니다. 로그인 쿠키는 HttpOnly·SameSite=Lax이고 Fly에서는 HTTPS 전용(`COOKIE_SECURE`)입니다.
+
+계정 기능 이전에 만든 과목은 주인이 없어 아무에게도 보이지 않습니다. 가입한 뒤 `python -m src.auth claim <아이디>`로 내 계정에 옮길 수 있습니다 (Fly에서는 `fly ssh console -C "python -m src.auth claim <아이디>"`). 사이트 전체를 비밀번호 하나로 잠그는 `ACCESS_PASSWORD`(HTTP Basic)도 그대로 쓸 수 있습니다.
 
 ### 노트 색인 (CLI)
 
@@ -228,6 +233,8 @@ python -m src.ingest <project_id>
 | Method | Endpoint | 설명 |
 |---|---|---|
 | GET | `/api/health` | 헬스체크 (인증 없이 접근 가능) |
+| POST | `/api/auth/signup` · `/api/auth/login` · `/api/auth/logout` | 회원가입·로그인(세션 쿠키 발급)·로그아웃 |
+| GET | `/api/auth/me` | 로그인한 사용자 확인 |
 | POST | `/api/projects` | 프로젝트(과목) 생성 |
 | GET | `/api/projects` | 프로젝트 목록 조회 |
 | POST | `/api/session` | 대화 세션 생성 (복습 예정 주제 있으면 먼저 안내) |
@@ -279,7 +286,7 @@ ruff check .
 pytest -q
 ```
 
-pytest 96개로 약점 주제 순위·보정 점수, SM-2 복습 간격(정답/오답에 따른 다음 복습 시점), 프로젝트별 노트·학습 기록 분리, 대화 세션 저장·조회, 빈 인덱스/빈 학습 기록 처리, API 엔드포인트 동작, 접근 비밀번호, RAG 평가 지표 계산을 검증합니다 (`tests/`, 10개 모듈).
+pytest 116개로 약점 주제 순위·보정 점수, SM-2 복습 간격(정답/오답에 따른 다음 복습 시점), 프로젝트별 노트·학습 기록 분리, 대화 세션 저장·조회, 빈 인덱스/빈 학습 기록 처리, API 엔드포인트 동작, 회원가입·로그인과 사용자 간 데이터 격리, 사용량 제한, 접근 비밀번호, RAG 평가 지표 계산을 검증합니다 (`tests/`, 11개 모듈).
 
 `main` 브랜치 push/PR마다 GitHub Actions에서 Ruff lint, pytest, 프론트엔드 빌드를 검증합니다 (`.github/workflows/`).
 
