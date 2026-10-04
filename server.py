@@ -3,11 +3,10 @@
 import base64
 import json
 import secrets
-import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,10 +19,10 @@ from openai import (
 )
 from pydantic import BaseModel
 
-from src import ingest, projects, search
+from src import auth, ingest, projects, search, usage
 from src.agent import ToolLoopError, new_conversation, run_turn
 from src.config import settings
-from src.sessions import load_session, save_session
+from src.sessions import get_project_id, load_session, save_session
 from src.tracker import get_due_topics, get_weak_topics
 
 ALLOWED_NOTE_EXTENSIONS = {".pdf", ".md", ".txt"}
@@ -74,6 +73,91 @@ def _visible(messages: list[dict]) -> list[dict]:
     ]
 
 
+# --- accounts -------------------------------------------------------------
+
+SESSION_COOKIE = "recap_session"
+
+
+def current_user(request: Request) -> dict:
+    user = auth.user_for_token(request.cookies.get(SESSION_COOKIE))
+    if user is None:
+        raise HTTPException(status_code=401, detail="로그인이 필요해요.")
+    return user
+
+
+def owned_project(project_id: str, user: dict) -> dict:
+    # Someone else's project answers exactly like a missing one, so ids can't be probed.
+    project = projects.get_project(project_id)
+    if project is None or project["user_id"] != user["id"]:
+        raise HTTPException(status_code=404, detail="과목을 찾을 수 없어요.")
+    return project
+
+
+def _set_login_cookie(response: Response, user_id: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        auth.create_login(user_id),
+        max_age=auth.SESSION_DAYS * 24 * 3600,
+        httponly=True,
+        samesite="lax",
+        secure=settings.cookie_secure,
+    )
+
+
+class SignupRequest(BaseModel):
+    username: str
+    password: str
+    signup_code: str | None = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.get("/api/auth/config")
+def auth_config():
+    return {"signup_code_required": bool(settings.signup_code)}
+
+
+@app.post("/api/auth/signup")
+def signup(req: SignupRequest, response: Response):
+    if settings.signup_code and not secrets.compare_digest(
+        (req.signup_code or "").encode(), settings.signup_code.encode()
+    ):
+        raise HTTPException(status_code=403, detail="가입 코드가 맞지 않아요.")
+    try:
+        user = auth.create_user(req.username, req.password)
+    except auth.SignupError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _set_login_cookie(response, user["id"])
+    return user
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest, response: Response):
+    user = auth.authenticate(req.username, req.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 맞지 않아요.")
+    _set_login_cookie(response, user["id"])
+    return user
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    auth.delete_login(request.cookies.get(SESSION_COOKIE))
+    response.delete_cookie(SESSION_COOKIE)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def me(user: dict = Depends(current_user)):
+    return user
+
+
+# --- study API --------------------------------------------------------------
+
+
 class CreateProjectRequest(BaseModel):
     name: str
 
@@ -93,18 +177,23 @@ class ResetRequest(BaseModel):
     project_id: str
 
 
+def _project_view(project: dict) -> dict:
+    return {"id": project["id"], "name": project["name"], "created_at": project["created_at"]}
+
+
 @app.post("/api/projects")
-def create_project(req: CreateProjectRequest):
-    return projects.create_project(req.name)
+def create_project(req: CreateProjectRequest, user: dict = Depends(current_user)):
+    return _project_view(projects.create_project(req.name, user["id"]))
 
 
 @app.get("/api/projects")
-def list_projects():
-    return projects.list_projects()
+def list_projects(user: dict = Depends(current_user)):
+    return [_project_view(p) for p in projects.list_projects(user["id"])]
 
 
 @app.post("/api/session")
-def create_session(req: SessionRequest):
+def create_session(req: SessionRequest, user: dict = Depends(current_user)):
+    owned_project(req.project_id, user)
     session_id = str(uuid.uuid4())
     messages = new_conversation()
 
@@ -120,6 +209,14 @@ def create_session(req: SessionRequest):
 
     save_session(session_id, req.project_id, messages)
     return {"session_id": session_id, "messages": _visible(messages)}
+
+
+def _check_session(session_id: str, project_id: str) -> None:
+    # A chat session belongs to the project it was opened for; anything else is refused
+    # so one user can't read or overwrite a conversation from another project.
+    stored = get_project_id(session_id)
+    if stored is not None and stored != project_id:
+        raise HTTPException(status_code=404, detail="대화를 찾을 수 없어요.")
 
 
 def _chat_failure(exc: Exception) -> HTTPException:
@@ -140,9 +237,17 @@ def _chat_failure(exc: Exception) -> HTTPException:
 
 
 @app.post("/api/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, user: dict = Depends(current_user)):
+    owned_project(req.project_id, user)
+    _check_session(req.session_id, req.project_id)
+    if usage.chats_in_last_hour(user["id"]) >= settings.chat_limit_per_hour:
+        raise HTTPException(
+            429, f"한 시간에 {settings.chat_limit_per_hour}번까지 질문할 수 있어요. 잠시 후 다시 보내주세요."
+        )
+
     messages = load_session(req.session_id) or new_conversation()
     messages.append({"role": "user", "content": req.message})
+    usage.record_chat(user["id"])
     try:
         messages = run_turn(messages, req.project_id)
     except Exception as exc:
@@ -154,22 +259,24 @@ def chat(req: ChatRequest):
 
 
 @app.post("/api/reset")
-def reset(req: ResetRequest):
+def reset(req: ResetRequest, user: dict = Depends(current_user)):
+    owned_project(req.project_id, user)
+    _check_session(req.session_id, req.project_id)
     messages = new_conversation()
     save_session(req.session_id, req.project_id, messages)
     return {"messages": []}
 
 
 @app.get("/api/weak-topics")
-def weak_topics(project_id: str):
+def weak_topics(project_id: str, user: dict = Depends(current_user)):
+    owned_project(project_id, user)
     try:
         return get_weak_topics(project_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.get("/api/notes")
-def list_notes(project_id: str):
+def _note_counts(project_id: str) -> list[dict]:
     metadata_path = projects.index_dir(project_id) / "metadata.json"
     if not metadata_path.exists():
         return []
@@ -181,23 +288,51 @@ def list_notes(project_id: str):
     return [{"source": source, "chunks": count} for source, count in sorted(counts.items())]
 
 
+@app.get("/api/notes")
+def list_notes(project_id: str, user: dict = Depends(current_user)):
+    owned_project(project_id, user)
+    return _note_counts(project_id)
+
+
 @app.post("/api/notes")
-async def upload_notes(project_id: str = Form(...), files: list[UploadFile] = File(...)):
+async def upload_notes(
+    project_id: str = Form(...),
+    files: list[UploadFile] = File(...),
+    user: dict = Depends(current_user),
+):
+    owned_project(project_id, user)
     if not files:
         raise HTTPException(status_code=400, detail="업로드할 파일이 없습니다.")
 
-    for file in files:
-        if Path(file.filename).suffix.lower() not in ALLOWED_NOTE_EXTENSIONS:
+    # Keep only the base name: a filename like "../../x" must not escape the notes folder.
+    names = [Path(file.filename or "").name for file in files]
+    for name in names:
+        if Path(name).suffix.lower() not in ALLOWED_NOTE_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"지원하지 않는 파일 형식입니다: {file.filename} (pdf, md, txt만 가능)",
+                detail=f"지원하지 않는 파일 형식입니다: {name} (pdf, md, txt만 가능)",
             )
 
     notes_dir = projects.notes_dir(project_id)
+    existing = {p.name for p in notes_dir.iterdir()} if notes_dir.is_dir() else set()
+    if len(existing | set(names)) > settings.max_notes_per_project:
+        raise HTTPException(
+            status_code=400, detail=f"과목당 노트는 {settings.max_notes_per_project}개까지 올릴 수 있어요."
+        )
+
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    contents = []
+    for name, file in zip(names, files):
+        data = await file.read(max_bytes + 1)
+        if len(data) > max_bytes:
+            raise HTTPException(
+                status_code=400, detail=f"{name}이(가) {settings.max_upload_mb}MB를 넘어요."
+            )
+        contents.append((name, data))
+
     notes_dir.mkdir(parents=True, exist_ok=True)
-    for file in files:
-        with (notes_dir / file.filename).open("wb") as dest:
-            shutil.copyfileobj(file.file, dest)
+    for name, data in contents:
+        (notes_dir / name).write_bytes(data)
 
     try:
         ingest.build_index(project_id)
@@ -206,7 +341,7 @@ async def upload_notes(project_id: str = Form(...), files: list[UploadFile] = Fi
 
     search.invalidate(project_id)
 
-    return list_notes(project_id)
+    return _note_counts(project_id)
 
 
 # In the Docker image the built React app sits next to the API, so one server

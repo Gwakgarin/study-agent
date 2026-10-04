@@ -5,6 +5,10 @@ primary_region = "nrt"
 
 [build]
 
+[env]
+  # The site is HTTPS-only on Fly, so the login cookie never travels in clear text.
+  COOKIE_SECURE = "true"
+
 # SQLite (tracker.db) and per-project FAISS indexes live under /app/data,
 # so mounting the volume there keeps them across deploys and restarts.
 [mounts]
