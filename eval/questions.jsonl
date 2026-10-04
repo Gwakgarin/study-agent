@@ -1,0 +1,38 @@
+{"id": "q01", "question": "정규화는 데이터 모델링의 어느 단계에서 하나요?", "evidence": ["정규화는 논리적 모델링 단계에서 수행한다"], "answer": "논리적 모델링 단계"}
+{"id": "q02", "question": "외부 스키마와 개념 스키마 사이의 독립성을 뭐라고 부르나요?", "evidence": ["논리적 독립성이라 하고"], "answer": "논리적 독립성"}
+{"id": "q03", "question": "주문이나 청구처럼 업무하다가 생기는 엔터티는 무슨 엔터티야?", "evidence": ["사건 엔터티는 주문, 청구처럼"], "answer": "사건 엔터티"}
+{"id": "q04", "question": "다른 엔터티에서 주식별자를 물려받지 않고 자기 고유 식별자를 갖는 엔터티는?", "evidence": ["기본 엔터티는 키 엔터티라고도 하며"], "answer": "기본 엔터티(키 엔터티)"}
+{"id": "q05", "question": "다른 속성을 계산해서 만든 속성을 왜 적게 정의하라고 하나요?", "evidence": ["데이터 정합성을 위해 가급적 적게"], "answer": "파생 속성은 데이터 정합성을 위해 가급적 적게 정의한다"}
+{"id": "q06", "question": "주식별자가 가져야 하는 네 가지 특징이 뭐야?", "evidence": ["유일성, 최소성, 불변성, 존재성"], "answer": "유일성, 최소성, 불변성, 존재성"}
+{"id": "q07", "question": "식별 관계만 계속 쓰면 어떤 문제가 생겨?", "evidence": ["SQL 조인 조건이 복잡해진다"], "answer": "자식으로 갈수록 주식별자 속성이 늘어나 조인 조건이 복잡해진다"}
+{"id": "q08", "question": "복합키 일부에만 종속된 속성을 없애는 건 몇 정규형이야?", "evidence": ["부분 함수 종속을 제거한 상태"], "answer": "제2정규형"}
+{"id": "q09", "question": "일반 속성끼리 종속되는 걸 제거하는 정규형은?", "evidence": ["이행 함수 종속을 제거한 상태"], "answer": "제3정규형"}
+{"id": "q10", "question": "반정규화를 바로 적용하지 말고 먼저 검토해야 하는 대안들은?", "evidence": ["뷰, 클러스터링, 인덱스 조정, 파티셔닝"], "answer": "뷰, 클러스터링, 인덱스 조정, 파티셔닝, 애플리케이션 처리"}
+{"id": "q11", "question": "무결성을 깨지 않으면서 성능을 높일 수 있는 반정규화 방법은?", "evidence": ["관계 반정규화는 무결성을 깨뜨리지 않으면서"], "answer": "관계 반정규화(중복 관계 추가)"}
+{"id": "q12", "question": "슈퍼타입과 서브타입을 테이블 하나로 합치는 변환 방식 이름은?", "evidence": ["Single Type 또는 All in One Type"], "answer": "Single Type(All in One Type)"}
+{"id": "q13", "question": "데이터가 어디 저장돼 있는지 사용자가 몰라도 되는 분산 DB 투명성은?", "evidence": ["위치 투명성은 사용하려는 데이터의 저장 장소"], "answer": "위치 투명성"}
+{"id": "q14", "question": "수정된 데이터가 원래 블록에 안 들어가서 다른 블록에 저장되는 현상은?", "evidence": ["Row Migration은"], "answer": "Row Migration"}
+{"id": "q15", "question": "TRUNCATE로 지운 데이터는 롤백할 수 있어?", "evidence": ["DDL이므로 자동 커밋되어 롤백할 수 없다"], "answer": "롤백할 수 없다(DDL이라 자동 커밋)"}
+{"id": "q16", "question": "UNIQUE 제약조건은 NULL을 허용해?", "evidence": ["UNIQUE KEY는 중복값을 허용하지 않지만 NULL은 허용한다"], "answer": "NULL은 허용한다"}
+{"id": "q17", "question": "SELECT에서 붙인 별칭을 WHERE 절에서 못 쓰는 이유는?", "evidence": ["FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY 순서로"], "answer": "WHERE가 SELECT보다 먼저 실행되기 때문"}
+{"id": "q18", "question": "COUNT(*)랑 COUNT(컬럼)은 NULL 처리가 어떻게 달라?", "evidence": ["COUNT(*)는 NULL을 포함한 전체 행 수"], "answer": "COUNT(컬럼)은 NULL 제외, COUNT(*)는 NULL 포함"}
+{"id": "q19", "question": "NULL이 아닌 첫 번째 값을 돌려주는 함수는?", "evidence": ["COALESCE(표현식1, 표현식2, ...)는"], "answer": "COALESCE"}
+{"id": "q20", "question": "LIKE에서 언더바(_)는 무슨 뜻이야?", "evidence": ["_는 정확히 한 개의 문자"], "answer": "정확히 한 문자"}
+{"id": "q21", "question": "집계 결과로 조건을 걸려면 어느 절에 써야 해?", "evidence": ["집계 결과에 대한 조건은 HAVING 절에"], "answer": "HAVING 절"}
+{"id": "q22", "question": "Oracle에서 오름차순 정렬하면 NULL은 어디에 와?", "evidence": ["Oracle은 NULL을 가장 큰 값으로 취급"], "answer": "마지막(가장 큰 값으로 취급)"}
+{"id": "q23", "question": "같은 조건으로 두 번 조회했는데 없던 행이 생기는 현상은?", "evidence": ["Phantom Read는"], "answer": "Phantom Read"}
+{"id": "q24", "question": "USING 조건절에 쓴 컬럼에 테이블 별칭 붙여도 돼?", "evidence": ["USING에 사용된 컬럼에는 접두사를 붙일 수 없다"], "answer": "붙일 수 없다"}
+{"id": "q25", "question": "계층형 질의에서 리프 노드인지 알려주는 건?", "evidence": ["CONNECT_BY_ISLEAF는"], "answer": "CONNECT_BY_ISLEAF"}
+{"id": "q26", "question": "UNION ALL이 UNION보다 빠른 이유가 뭐야?", "evidence": ["정렬이 필요 없어 UNION보다 빠르다"], "answer": "중복 제거를 위한 정렬이 필요 없어서"}
+{"id": "q27", "question": "인수 순서를 바꿔도 결과가 똑같은 그룹 함수는?", "evidence": ["인수의 순서가 바뀌어도 결과는 같다"], "answer": "GROUPING SETS"}
+{"id": "q28", "question": "1등이 두 명일 때 다음 순위를 2등으로 매기는 함수는?", "evidence": ["DENSE_RANK는 동일한 값에 같은 순위를"], "answer": "DENSE_RANK"}
+{"id": "q29", "question": "전월 대비 매출처럼 이전 행 값을 가져오는 윈도우 함수는?", "evidence": ["LAG는 파티션별 윈도우에서 이전"], "answer": "LAG"}
+{"id": "q30", "question": "결합 인덱스에서 앞쪽에 어떤 컬럼을 두는 게 좋아?", "evidence": ["등치(=) 조건으로 검색되는 컬럼을 앞에"], "answer": "자주 쓰이고 = 조건으로 검색되는 컬럼"}
+{"id": "q31", "question": "작은 테이블로 해시 테이블을 만들어 조인하는 방식은 어떤 조건에서만 쓸 수 있어?", "evidence": ["동등 조인(=)에서만 사용할 수 있으며"], "answer": "동등 조인(=)에서만"}
+{"id": "q32", "question": "인덱스 컬럼에 함수를 씌우면 어떻게 돼?", "evidence": ["인덱스 컬럼을 변형하면 인덱스를 사용할 수 없다"], "answer": "인덱스를 사용할 수 없다"}
+{"id": "u01", "question": "PL/SQL에서 커서를 선언하는 방법을 알려줘", "evidence": [], "answer": null}
+{"id": "u02", "question": "MySQL의 InnoDB 엔진과 MyISAM 엔진 차이는?", "evidence": [], "answer": null}
+{"id": "u03", "question": "데드락이 발생하는 네 가지 조건은?", "evidence": [], "answer": null}
+{"id": "u04", "question": "PIVOT 절은 어떻게 사용해?", "evidence": [], "answer": null}
+{"id": "u05", "question": "정규표현식 함수 REGEXP_SUBSTR 사용법은?", "evidence": [], "answer": null}
+{"id": "u06", "question": "NoSQL 데이터베이스의 CAP 이론이 뭐야?", "evidence": [], "answer": null}

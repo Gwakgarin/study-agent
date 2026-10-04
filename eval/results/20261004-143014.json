@@ -1,0 +1,66 @@
+{
+  "run_at": "2026-10-04T14:30:07",
+  "embedding_model": "text-embedding-3-small",
+  "retrieval": [
+    {
+      "chunk_size": 300,
+      "overlap": 100,
+      "chunks": 73,
+      "questions": 32,
+      "hit@1": 0.65625,
+      "hit@3": 0.84375,
+      "hit@5": 0.90625,
+      "mrr": 0.7575520833333333,
+      "misses_top5": [
+        {
+          "id": "q25",
+          "question": "계층형 질의에서 리프 노드인지 알려주는 건?",
+          "rank": 8
+        },
+        {
+          "id": "q27",
+          "question": "인수 순서를 바꿔도 결과가 똑같은 그룹 함수는?",
+          "rank": null
+        },
+        {
+          "id": "q30",
+          "question": "결합 인덱스에서 앞쪽에 어떤 컬럼을 두는 게 좋아?",
+          "rank": null
+        }
+      ]
+    },
+    {
+      "chunk_size": 500,
+      "overlap": 100,
+      "chunks": 38,
+      "questions": 32,
+      "hit@1": 0.5625,
+      "hit@3": 0.84375,
+      "hit@5": 0.9375,
+      "mrr": 0.7177455357142857,
+      "misses_top5": [
+        {
+          "id": "q21",
+          "question": "집계 결과로 조건을 걸려면 어느 절에 써야 해?",
+          "rank": 8
+        },
+        {
+          "id": "q22",
+          "question": "Oracle에서 오름차순 정렬하면 NULL은 어디에 와?",
+          "rank": 7
+        }
+      ]
+    },
+    {
+      "chunk_size": 800,
+      "overlap": 100,
+      "chunks": 23,
+      "questions": 32,
+      "hit@1": 0.5625,
+      "hit@3": 0.96875,
+      "hit@5": 1.0,
+      "mrr": 0.7526041666666666,
+      "misses_top5": []
+    }
+  ]
+}
