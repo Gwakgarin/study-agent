@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # When set, every request except the health check needs HTTP Basic auth with this
+    # password (any username). Keeps a public deployment from spending the OpenAI key.
+    access_password: str | None = None
+
     db_path: Path = PROJECT_ROOT / "data" / "tracker.db"
 
 

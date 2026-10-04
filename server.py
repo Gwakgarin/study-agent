@@ -1,11 +1,13 @@
 """FastAPI backend for the study agent (used by the React frontend)."""
 
+import base64
 import json
+import secrets
 import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +36,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+PUBLIC_PATHS = {"/api/health"}
+
+
+def _password_ok(header: str | None) -> bool:
+    if not header or not header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(header[6:]).decode()
+    except (ValueError, UnicodeDecodeError):
+        return False
+    _, _, password = decoded.partition(":")
+    return secrets.compare_digest(password.encode(), settings.access_password.encode())
+
+
+@app.middleware("http")
+async def require_password(request: Request, call_next):
+    # The browser shows its own login prompt on 401 and then resends the credentials
+    # on every same-origin fetch, so the React app needs no changes.
+    if settings.access_password and request.url.path not in PUBLIC_PATHS:
+        if not _password_ok(request.headers.get("authorization")):
+            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Recap"'})
+    return await call_next(request)
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
 
 
 def _visible(messages: list[dict]) -> list[dict]:

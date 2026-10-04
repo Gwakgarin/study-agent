@@ -272,3 +272,48 @@ def test_chat_returns_502_when_tool_loop_never_finishes(client, monkeypatch):
     res = client.post("/api/chat", json={"session_id": "s1", "project_id": "p1", "message": "hi"})
 
     assert res.status_code == 502
+
+
+def _basic(password, user="me"):
+    import base64
+
+    return {"Authorization": "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()}
+
+
+def test_health_is_open_even_with_password(client, monkeypatch):
+    monkeypatch.setattr(server.settings, "access_password", "s3cret")
+
+    res = client.get("/api/health")
+
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+
+
+def test_password_required_when_configured(client, monkeypatch):
+    monkeypatch.setattr(server.settings, "access_password", "s3cret")
+
+    res = client.get("/api/projects")
+
+    assert res.status_code == 401
+    assert res.headers["www-authenticate"].startswith("Basic")
+
+
+def test_wrong_password_is_rejected(client, monkeypatch):
+    monkeypatch.setattr(server.settings, "access_password", "s3cret")
+
+    assert client.get("/api/projects", headers=_basic("nope")).status_code == 401
+    assert client.get("/api/projects", headers={"Authorization": "Basic !!!"}).status_code == 401
+
+
+def test_correct_password_with_any_username_passes(client, monkeypatch):
+    monkeypatch.setattr(server.settings, "access_password", "s3cret")
+
+    res = client.get("/api/projects", headers=_basic("s3cret", user="anyone"))
+
+    assert res.status_code == 200
+
+
+def test_no_password_configured_leaves_api_open(client, monkeypatch):
+    monkeypatch.setattr(server.settings, "access_password", None)
+
+    assert client.get("/api/projects").status_code == 200
