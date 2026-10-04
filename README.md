@@ -102,7 +102,8 @@ study-agent/
 │   └── src/
 │       ├── pages/                # Landing, ChatApp, Projects
 │       └── components/           # ChatWindow, ChatMessage, Sidebar, Logo
-├── tests/                       # pytest (73개 테스트)
+├── eval/                        # RAG 품질 평가 (SQLD 노트 6개, 질문 38개, 결과 JSON)
+├── tests/                       # pytest (96개 테스트)
 ├── data/                        # SQLite DB, 프로젝트별 노트/인덱스 (gitignored)
 └── .github/workflows/            # CI: ruff lint + pytest + frontend build
 ```
@@ -201,6 +202,19 @@ docker compose up --build
 
 `http://localhost:8000`에서 바로 사용할 수 있습니다. 이미지 빌드 단계에서 React를 빌드하고, FastAPI가 API와 빌드된 화면을 함께 서빙합니다. 노트·FAISS 인덱스·학습 기록(`data/`)은 볼륨으로 연결돼 컨테이너를 다시 만들어도 유지됩니다.
 
+### Fly.io 배포
+
+Docker 이미지를 그대로 배포합니다. SQLite와 FAISS 인덱스가 있는 `/app/data`에 볼륨을 붙여 재배포해도 데이터가 남습니다 (`fly.toml`).
+
+```bash
+fly launch --no-deploy --copy-config        # 앱 이름은 fly.toml의 app 값
+fly volumes create recap_data --size 1 --region nrt
+fly secrets set OPENAI_API_KEY=... ACCESS_PASSWORD=...
+fly deploy
+```
+
+`ACCESS_PASSWORD`를 설정하면 헬스체크(`/api/health`)를 뺀 모든 요청에 HTTP Basic 인증이 걸립니다. 공개 URL로 OpenAI 키가 소모되는 것을 막기 위한 장치이고, 브라우저가 로그인 창을 띄운 뒤 같은 출처 요청에 자격 증명을 계속 붙여 보내므로 프론트엔드 수정은 필요 없습니다.
+
 ### 노트 색인 (CLI)
 
 ```bash
@@ -213,6 +227,7 @@ python -m src.ingest <project_id>
 
 | Method | Endpoint | 설명 |
 |---|---|---|
+| GET | `/api/health` | 헬스체크 (인증 없이 접근 가능) |
 | POST | `/api/projects` | 프로젝트(과목) 생성 |
 | GET | `/api/projects` | 프로젝트 목록 조회 |
 | POST | `/api/session` | 대화 세션 생성 (복습 예정 주제 있으면 먼저 안내) |
@@ -222,6 +237,41 @@ python -m src.ingest <project_id>
 | GET | `/api/notes` | 프로젝트의 노트 파일/청크 수 조회 |
 | POST | `/api/notes` | 노트 업로드 (PDF/MD/TXT) 후 자동 색인 |
 
+## 📏 RAG 품질 평가
+
+체감이 아니라 숫자로 검색·답변 품질을 확인하려고 고정 평가셋을 만들었습니다 (`eval/`).
+
+- **코퍼스**: SQLD 개념 노트 6개 (데이터 모델링, 정규화, SQL 기본, 조인·서브쿼리, 윈도우 함수, 인덱스·튜닝 / 약 1.1만 자)
+- **질문 38개**: 노트에 답이 있는 질문 32개 + 노트에 없는 질문 6개. 질문은 노트 문장을 그대로 베끼지 않고 실제로 물어볼 법한 말투로 작성
+- **정답 라벨**: 질문마다 노트에서 근거 문장(짧은 구절)을 지정. 검색된 청크에 그 구절이 들어 있으면 정답 청크로 판정하므로 청크 크기를 바꿔도 라벨을 다시 만들 필요가 없음
+
+```bash
+python -m eval.run_eval                            # 검색 평가: 청크 300/500/800 비교
+python -m eval.run_eval --chunk-sizes 800 --answers   # 실제 에이전트(run_turn) 답변까지 평가
+```
+
+### 검색 (overlap 100, top-k 검색)
+
+| chunk_size | 청크 수 | Hit@1 | Hit@3 | Hit@5 | MRR |
+|---:|---:|---:|---:|---:|---:|
+| 300 | 73 | 65.6% | 84.4% | 90.6% | 0.758 |
+| 500 | 38 | 56.2% | 84.4% | 93.8% | 0.718 |
+| **800 (현재)** | 23 | 56.2% | 96.9% | 100.0% | 0.753 |
+
+작은 청크는 1위 정확도(Hit@1)가 높지만, 설명이 여러 청크로 쪼개지면서 "결합 인덱스 컬럼 순서", "GROUPING SETS"처럼 아예 top-5 밖으로 밀리는 질문이 생겼습니다. 에이전트는 상위 5개를 모두 읽고 답하므로 Hit@5가 가장 높은 800을 유지했습니다. 다만 코퍼스가 작아 800에서는 top-5가 전체 청크의 약 22%라는 점은 감안해야 합니다.
+
+### 답변 (chunk 800, `gpt-4o-mini`, 채점도 `gpt-4o-mini`)
+
+| 지표 | 값 | 의미 |
+|---|---:|---|
+| 정확도 | 96.9% (31/32) | 답이 있는 질문에 정답과 같은 내용을 말함 |
+| 노트에 없는 질문 거절률 | 100% (6/6) | "노트에 없다"고 답함 |
+| 잘못된 거절 | 0% | 답이 있는데 모른다고 한 경우 |
+| 검색 호출률 | 100% | 답하기 전에 `search_notes`를 호출함 |
+| 응답 시간 p50 | 2.55초 | 툴 호출 포함 한 턴 |
+
+**틀린 사례**: "정규화는 데이터 모델링의 어느 단계에서 하나요?"에 노트의 "논리적 모델링 단계" 대신 일반 지식으로 "설계 단계"라고 답했습니다. 정답 청크는 검색 결과 3위에 있었지만, 모델이 노트보다 사전 지식을 우선했습니다. 같은 답을 채점 모델은 근거 있음(grounded)으로 판정해, LLM 채점이 근거성을 관대하게 본다는 한계도 확인했습니다. 근거성 지표(100%)는 그래서 참고용으로만 봅니다.
+
 ## 🧪 테스트 & CI
 
 ```bash
@@ -229,7 +279,7 @@ ruff check .
 pytest -q
 ```
 
-pytest 73개로 약점 주제 순위·보정 점수, SM-2 복습 간격(정답/오답에 따른 다음 복습 시점), 프로젝트별 노트·학습 기록 분리, 대화 세션 저장·조회, 빈 인덱스/빈 학습 기록 처리, API 엔드포인트 동작을 검증합니다 (`tests/`, 9개 모듈).
+pytest 96개로 약점 주제 순위·보정 점수, SM-2 복습 간격(정답/오답에 따른 다음 복습 시점), 프로젝트별 노트·학습 기록 분리, 대화 세션 저장·조회, 빈 인덱스/빈 학습 기록 처리, API 엔드포인트 동작, 접근 비밀번호, RAG 평가 지표 계산을 검증합니다 (`tests/`, 10개 모듈).
 
 `main` 브랜치 push/PR마다 GitHub Actions에서 Ruff lint, pytest, 프론트엔드 빌드를 검증합니다 (`.github/workflows/`).
 
