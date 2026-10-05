@@ -25,9 +25,13 @@ RAG로 내 노트를 검색하고, 약점 주제를 우선 출제하고, SM-2 �
 
 ![랜딩 페이지 스크롤 데모](docs/screenshots/landing-demo.gif)
 
-| 과목 선택 | 학습 채팅 |
+| 퀴즈 카드 · 진행 상태 | 답변과 참고한 노트 |
 |---|---|
-| ![과목 선택](docs/screenshots/projects.png) | ![채팅 화면](docs/screenshots/chat.png) |
+| ![보기를 누르면 바로 채점되는 퀴즈 카드와, 답을 만드는 동안 보이는 진행 상태](docs/screenshots/quiz.png) | ![답변 아래에 펼친 참고 노트와 근거 조각](docs/screenshots/chat.png) |
+
+| 과목 목록 | 회원가입 |
+|---|---|
+| ![과목 카드마다 노트 수, 푼 문제, 정답률](docs/screenshots/projects.png) | ![비밀번호 확인과 입력 중 안내가 있는 회원가입](docs/screenshots/signup.png) |
 
 ## 🎯 핵심 기능
 
