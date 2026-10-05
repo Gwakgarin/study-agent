@@ -2,7 +2,38 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 import { useUser } from "../components/RequireAuth.jsx";
-import { AuthRequiredError, createProject, fetchProjects, logout } from "../api.js";
+import { AuthRequiredError, createProject, createSampleProject, fetchProjects, logout } from "../api.js";
+
+function ProjectCard({ project }) {
+  const practised = project.attempts > 0;
+  return (
+    <Link to={`/app/${project.id}`} className="project-card">
+      <div className="project-card-top">
+        <div className="project-card-name">{project.name}</div>
+        {project.due > 0 && <span className="due-badge">복습 {project.due}</span>}
+      </div>
+      <dl className="project-stats">
+        <div>
+          <dt>노트</dt>
+          <dd>{project.notes}개</dd>
+        </div>
+        <div>
+          <dt>푼 문제</dt>
+          <dd>{project.attempts}개</dd>
+        </div>
+        <div>
+          <dt>정답률</dt>
+          <dd>{practised ? `${Math.round(project.accuracy * 100)}%` : "-"}</dd>
+        </div>
+      </dl>
+      {practised && (
+        <div className="accuracy-track" aria-hidden="true">
+          <div className="accuracy-fill" style={{ width: `${project.accuracy * 100}%` }} />
+        </div>
+      )}
+    </Link>
+  );
+}
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -10,6 +41,7 @@ export default function Projects() {
   const [projects, setProjects] = useState(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [preparingSample, setPreparingSample] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -35,6 +67,23 @@ export default function Projects() {
       setError("프로젝트를 만들지 못했어요. 서버가 켜져 있는지 확인해주세요.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleSample() {
+    setPreparingSample(true);
+    setError(null);
+    try {
+      const project = await createSampleProject();
+      navigate(`/app/${project.id}`);
+    } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setError(err.message || "샘플 과목을 만들지 못했어요.");
+    } finally {
+      setPreparingSample(false);
     }
   }
 
@@ -78,15 +127,19 @@ export default function Projects() {
         {error && <div className="error-banner">{error}</div>}
 
         {projects === null ? null : projects.length === 0 ? (
-          <div className="empty-state projects-empty">
-            아직 만든 과목이 없어요. 위에서 첫 과목을 만들어보세요.
+          <div className="sample-cta">
+            <div>
+              <div className="sample-title">처음이라면 샘플 과목으로 먼저 체험해보세요</div>
+              <p>SQLD 개념 노트 6개가 미리 들어 있어요. 질문하고, 퀴즈를 풀고, 약점이 쌓이는 흐름을 바로 볼 수 있어요.</p>
+            </div>
+            <button type="button" className="btn-primary" onClick={handleSample} disabled={preparingSample}>
+              {preparingSample ? "준비하는 중..." : "샘플 과목 열기"}
+            </button>
           </div>
         ) : (
           <div className="project-grid">
             {projects.map((p) => (
-              <Link to={`/app/${p.id}`} className="project-card" key={p.id}>
-                <div className="project-card-name">{p.name}</div>
-              </Link>
+              <ProjectCard project={p} key={p.id} />
             ))}
           </div>
         )}

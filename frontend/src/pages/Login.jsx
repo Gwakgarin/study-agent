@@ -9,6 +9,7 @@ export default function Login() {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [signupCode, setSignupCode] = useState("");
   const [codeRequired, setCodeRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -21,15 +22,22 @@ export default function Login() {
   }, []);
 
   const isSignup = mode === "signup";
+  const tooShort = isSignup && password.length > 0 && password.length < 8;
+  const mismatch = isSignup && passwordConfirm.length > 0 && password !== passwordConfirm;
 
   function switchMode(next) {
     setMode(next);
     setError(null);
+    setPasswordConfirm("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (submitting) return;
+    if (isSignup && password !== passwordConfirm) {
+      setError("비밀번호가 서로 달라요. 다시 확인해주세요.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -102,9 +110,36 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isSignup ? "8자 이상" : ""}
+              aria-invalid={tooShort || undefined}
+              aria-describedby={tooShort ? "password-hint" : undefined}
               required
             />
+            {tooShort && (
+              <span id="password-hint" className="field-hint">
+                8자 이상 입력해주세요. ({password.length}/8)
+              </span>
+            )}
           </label>
+          {isSignup && (
+            <label>
+              비밀번호 확인
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                placeholder="한 번 더 입력"
+                aria-invalid={mismatch || undefined}
+                aria-describedby="password-confirm-hint"
+                required
+              />
+              {passwordConfirm.length > 0 && (
+                <span id="password-confirm-hint" className={`field-hint ${mismatch ? "" : "ok"}`}>
+                  {mismatch ? "비밀번호가 서로 달라요." : "비밀번호가 일치해요."}
+                </span>
+              )}
+            </label>
+          )}
           {isSignup && codeRequired && (
             <label>
               가입 코드
@@ -118,7 +153,11 @@ export default function Login() {
             </label>
           )}
           {error && <div className="error-banner">{error}</div>}
-          <button type="submit" className="btn-primary" disabled={submitting}>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={submitting || (isSignup && (tooShort || mismatch || !passwordConfirm))}
+          >
             {submitting ? "잠시만요..." : isSignup ? "가입하고 시작하기" : "로그인"}
           </button>
         </form>
