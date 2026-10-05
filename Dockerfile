@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 COPY server.py ./
+# Sample SQLD notes behind the "try a sample subject" button.
+COPY eval/corpus/ ./eval/corpus/
 COPY --from=frontend /frontend/dist ./frontend/dist
 
 # Notes, FAISS indexes and tracker.db live here; mount a volume to keep them.

@@ -2,6 +2,7 @@
 
 import functools
 import json
+import uuid
 
 from src.config import settings
 from src.ingest import get_client
@@ -36,7 +37,20 @@ def generate_quiz(project_id: str, topic: str, difficulty: str = "medium") -> di
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
     )
-    return json.loads(response.choices[0].message.content)
+    quiz = json.loads(response.choices[0].message.content)
+    choices = quiz.get("choices")
+    answer_index = quiz.get("answer_index")
+    if (
+        not quiz.get("question")
+        or not isinstance(choices, list)
+        or len(choices) < 2
+        or not isinstance(answer_index, int)
+        or not 0 <= answer_index < len(choices)
+    ):
+        return {"error": "퀴즈를 만들지 못했어요. 다시 시도해주세요."}
+    # The id lets the quiz card on screen be graded by the server later, and the
+    # topic is what the weak-topic tracker files the result under.
+    return {**quiz, "quiz_id": uuid.uuid4().hex, "topic": topic}
 
 
 def record_answer(project_id: str, topic: str, correct: bool) -> dict:
@@ -72,7 +86,13 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "topic": {"type": "string", "description": "퀴즈를 낼 주제"},
+                    "topic": {
+                        "type": "string",
+                        "description": (
+                            "퀴즈를 낼 구체적인 개념 이름 (예: '제2정규형', 'Hash Join'). "
+                            "'general'처럼 넓은 말은 쓰지 않는다."
+                        ),
+                    },
                     "difficulty": {
                         "type": "string",
                         "enum": ["easy", "medium", "hard"],
@@ -87,7 +107,10 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "record_answer",
-            "description": "사용자가 퀴즈에 답한 결과(정답/오답)를 주제별로 기록한다.",
+            "description": (
+                "사용자가 채팅 글로 퀴즈에 답했을 때만 결과(정답/오답)를 주제별로 기록한다. "
+                "퀴즈 카드에서 고른 답은 이미 기록되어 있다."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {

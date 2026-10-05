@@ -72,3 +72,25 @@ def make_tool_call_response(tool_calls):
 @pytest.fixture
 def fake_openai_factory():
     return FakeOpenAI
+
+
+def make_stream(text_pieces=(), tool_calls=()):
+    """Fake stream=True response: text deltas, then tool calls split into pieces.
+
+    tool_calls: list of (index, id, name, [argument pieces]).
+    """
+    chunks = [SimpleNamespace(choices=[])]  # usage-only chunks have no choices
+
+    def chunk(content=None, calls=None):
+        delta = SimpleNamespace(content=content, tool_calls=calls)
+        return SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+    for piece in text_pieces:
+        chunks.append(chunk(content=piece))
+    for index, call_id, name, arg_pieces in tool_calls:
+        head = SimpleNamespace(index=index, id=call_id, function=SimpleNamespace(name=name, arguments=""))
+        chunks.append(chunk(calls=[head]))
+        for arg in arg_pieces:
+            rest = SimpleNamespace(index=index, id=None, function=SimpleNamespace(name=None, arguments=arg))
+            chunks.append(chunk(calls=[rest]))
+    return chunks

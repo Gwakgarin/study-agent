@@ -4,13 +4,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src import auth, projects, sessions, usage
+from src import auth, projects, quizzes, sessions, tracker, usage
 
 
 @pytest.fixture(autouse=True)
 def isolated_db(tmp_path, monkeypatch):
     db_path = tmp_path / "study-agent.db"
-    for module in (sessions, projects, auth, usage):
+    for module in (sessions, projects, auth, usage, quizzes, tracker):
         monkeypatch.setattr(module, "DB_PATH", db_path)
     monkeypatch.setattr(projects, "PROJECTS_ROOT", tmp_path / "projects")
 
@@ -326,3 +326,25 @@ def test_no_password_configured_leaves_api_open(client, monkeypatch):
     monkeypatch.setattr(server.settings, "access_password", None)
 
     assert client.get("/api/projects").status_code == 200
+
+
+def test_session_can_be_resumed_with_its_messages(client, p1, monkeypatch):
+    _stub_run_turn(monkeypatch, reply="저장된 답")
+    session_id = client.post("/api/session", json={"project_id": p1}).json()["session_id"]
+    client.post("/api/chat", json={"session_id": session_id, "project_id": p1, "message": "hi"})
+
+    res = client.post("/api/session", json={"project_id": p1, "resume_session_id": session_id}).json()
+
+    assert res["session_id"] == session_id
+    assert res["messages"][-1]["content"] == "저장된 답"
+
+
+def test_resume_ignores_empty_or_foreign_sessions(client, p1):
+    other = client.post("/api/projects", json={"name": "다른 과목"}).json()["id"]
+    empty = client.post("/api/session", json={"project_id": p1}).json()["session_id"]
+
+    same = client.post("/api/session", json={"project_id": p1, "resume_session_id": empty}).json()
+    assert same["session_id"] != empty
+    res = client.post("/api/session", json={"project_id": other, "resume_session_id": empty}).json()
+    assert res["session_id"] != empty
+    assert client.post("/api/session", json={"project_id": p1, "resume_session_id": "nope"}).status_code == 200

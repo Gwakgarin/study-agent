@@ -2,13 +2,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src import auth, projects, sessions, usage
+from src import auth, projects, quizzes, sessions, tracker, usage
 
 
 @pytest.fixture(autouse=True)
 def isolated_db(tmp_path, monkeypatch):
     db_path = tmp_path / "study-agent.db"
-    for module in (sessions, projects, auth, usage):
+    for module in (sessions, projects, auth, usage, quizzes, tracker):
         monkeypatch.setattr(module, "DB_PATH", db_path)
     monkeypatch.setattr(projects, "PROJECTS_ROOT", tmp_path / "projects")
 
@@ -205,3 +205,37 @@ def test_upload_rejects_too_many_notes(monkeypatch):
     )
 
     assert res.status_code == 400
+
+
+def test_sample_project_is_created_once_with_indexed_notes(monkeypatch, fake_openai_factory):
+    from src import ingest
+
+    monkeypatch.setattr(ingest, "get_client", lambda: fake_openai_factory())
+    client = TestClient(server.app)
+    _signup(client)
+
+    first = client.post("/api/projects/sample").json()
+    again = client.post("/api/projects/sample").json()
+
+    assert first["id"] == again["id"]
+    listed = client.get("/api/projects").json()
+    assert len(listed) == 1
+    assert listed[0]["notes"] == 6
+    assert listed[0]["attempts"] == 0 and listed[0]["accuracy"] is None
+
+
+def test_review_lists_due_topics_for_owner_only(monkeypatch):
+    alice, bob = TestClient(server.app), TestClient(server.app)
+    _signup(alice, "alice")
+    _signup(bob, "bob")
+    project_id = alice.post("/api/projects", json={"name": "A"}).json()["id"]
+    tracker.record_answer(project_id, "조인", False)
+    conn = tracker.get_connection()
+    with conn:
+        conn.execute("UPDATE schedule SET next_review_at = datetime('now', '-1 day')")
+    conn.close()
+
+    assert [t["topic"] for t in alice.get("/api/review", params={"project_id": project_id}).json()] == ["조인"]
+    assert bob.get("/api/review", params={"project_id": project_id}).status_code == 404
+    card = alice.get("/api/projects").json()[0]
+    assert card["attempts"] == 1 and card["accuracy"] == 0 and card["due"] == 1

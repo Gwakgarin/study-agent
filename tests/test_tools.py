@@ -42,7 +42,9 @@ def test_generate_quiz_builds_prompt_from_retrieved_chunks_and_parses_json(monke
 
     result = tools.generate_quiz("p1", "FAISS", difficulty="easy")
 
-    assert result == quiz
+    assert {k: result[k] for k in quiz} == quiz
+    assert result["topic"] == "FAISS"
+    assert len(result["quiz_id"]) == 32
     call_kwargs = fake_client.chat.completions.calls[0]
     assert "FAISS는 벡터 검색 라이브러리" in call_kwargs["messages"][0]["content"]
     assert "easy" in call_kwargs["messages"][0]["content"]
@@ -81,3 +83,15 @@ def test_build_tool_functions_binds_project_id_so_the_model_never_supplies_it(mo
     bound["get_weak_topics"]()
 
     assert calls == ["p1"]
+
+
+def test_generate_quiz_rejects_malformed_quiz(monkeypatch, fake_openai_factory):
+    monkeypatch.setattr(tools, "_search_notes", lambda project_id, topic, k: [{"text": "x"}])
+    bad = {"question": "Q", "choices": ["a", "b"], "answer_index": 5, "explanation": ""}
+    fake_client = fake_openai_factory()
+    fake_client.chat.completions._responses = [
+        type("R", (), {"choices": [type("C", (), {"message": type("M", (), {"content": json.dumps(bad)})()})()]})()
+    ]
+    monkeypatch.setattr(tools, "get_client", lambda: fake_client)
+
+    assert "error" in tools.generate_quiz("p1", "x")

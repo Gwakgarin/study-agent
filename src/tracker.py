@@ -158,3 +158,21 @@ def get_due_topics(project_id: str) -> list[dict]:
     conn.close()
 
     return [{"topic": r[0], "next_review_at": r[1]} for r in rows]
+
+
+def project_stats(project_id: str) -> dict:
+    """Numbers for a project card: how much was practised, how well, and what's due."""
+    conn = get_connection()
+    attempts, correct = conn.execute(
+        "SELECT COUNT(*), COALESCE(SUM(correct), 0) FROM answers WHERE project_id = ?", (project_id,)
+    ).fetchone()
+    due = conn.execute(
+        "SELECT COUNT(*) FROM schedule WHERE project_id = ? AND next_review_at <= datetime('now')",
+        (project_id,),
+    ).fetchone()[0]
+    conn.close()
+    return {
+        "attempts": attempts,
+        "accuracy": correct / attempts if attempts else None,
+        "due": due,
+    }
