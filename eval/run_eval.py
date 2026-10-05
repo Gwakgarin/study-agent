@@ -14,6 +14,7 @@ answer is not in the notes check that the agent says it doesn't know.
 import argparse
 import hashlib
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -25,13 +26,14 @@ from src import search
 from src.agent import new_conversation, run_turn_stream
 from src.config import settings
 from src.ingest import EMBEDDING_MODEL, chunk_text, get_client
-from src.rag_eval import first_hit_rank, hit_rate_at_k, mean_reciprocal_rank
+from src.rag_eval import first_hit_rank, gate_failures, hit_rate_at_k, mean_reciprocal_rank
 
 EVAL_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = EVAL_DIR / "corpus"
 QUESTIONS_PATH = EVAL_DIR / "questions.jsonl"
 CACHE_PATH = EVAL_DIR / ".cache" / "embeddings.json"
 RESULTS_DIR = EVAL_DIR / "results"
+GATES_PATH = EVAL_DIR / "gates.json"
 
 EVAL_PROJECT_ID = "__eval__"
 TOP_K = 10
@@ -228,6 +230,7 @@ def main() -> None:
     parser.add_argument("--overlap", type=int, default=settings.chunk_overlap)
     parser.add_argument("--answers", action="store_true", help="also grade end-to-end agent answers")
     parser.add_argument("--chunk-size", type=int, default=settings.chunk_size, help="chunk size for --answers")
+    parser.add_argument("--gate", action="store_true", help="exit with 1 if a metric misses eval/gates.json")
     args = parser.parse_args()
 
     questions = load_questions()
@@ -256,6 +259,36 @@ def main() -> None:
     out = RESULTS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}.json"
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print(f"\nSaved {out.relative_to(EVAL_DIR.parent)}")
+
+    if args.gate:
+        failures = gate_failures(report, json.loads(GATES_PATH.read_text()))
+        _write_ci_summary(report, failures)
+        if failures:
+            print("\nREGRESSION:\n  " + "\n  ".join(failures))
+            raise SystemExit(1)
+        print("\nAll quality gates passed.")
+
+
+def _write_ci_summary(report: dict, failures: list[str]) -> None:
+    """On GitHub Actions, show the numbers on the run page."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    lines = ["## RAG quality gate", "", "| chunk | Hit@1 | Hit@5 | MRR |", "|---:|---:|---:|---:|"]
+    for r in report["retrieval"]:
+        lines.append(f"| {r['chunk_size']} | {r['hit@1']:.1%} | {r['hit@5']:.1%} | {r['mrr']:.3f} |")
+    if "answers" in report:
+        a = report["answers"]
+        lines += [
+            "",
+            "| accuracy | refusal on unanswerable | false refusal | first feedback p50 |",
+            "|---:|---:|---:|---:|",
+            f"| {a['accuracy']:.1%} | {a['refusal_on_unanswerable']:.1%} | "
+            f"{a['false_refusal_on_answerable']:.1%} | {a['first_feedback_p50_s']}s |",
+        ]
+    lines += ["", "**Failed:** " + "; ".join(failures) if failures else "**All gates passed.**"]
+    with open(path, "a") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

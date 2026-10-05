@@ -1,0 +1,70 @@
+name: RAG quality gate
+
+# Runs the real agent against the eval set, so it costs a few cents of OpenAI usage.
+# That's why it only runs when the prompt, tools, retrieval or eval set change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/agent.py"
+      - "src/tools.py"
+      - "src/search.py"
+      - "src/ingest.py"
+      - "src/config.py"
+      - "eval/**"
+      - "!eval/results/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/agent.py"
+      - "src/tools.py"
+      - "src/search.py"
+      - "src/ingest.py"
+      - "src/config.py"
+      - "eval/**"
+      - "!eval/results/**"
+  workflow_dispatch:
+
+concurrency:
+  group: rag-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip without an API key
+        if: env.OPENAI_API_KEY == ''
+        run: echo "::notice::OPENAI_API_KEY secret is not set, skipping the RAG quality gate."
+
+      - uses: actions/setup-python@v5
+        if: env.OPENAI_API_KEY != ''
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        if: env.OPENAI_API_KEY != ''
+        run: pip install -r requirements.txt
+
+      # Embeddings of the notes and questions only change when the eval set does.
+      - uses: actions/cache@v4
+        if: env.OPENAI_API_KEY != ''
+        with:
+          path: eval/.cache
+          key: eval-embeddings-${{ hashFiles('eval/corpus/**', 'eval/questions.jsonl') }}
+
+      - name: Run eval and check gates
+        if: env.OPENAI_API_KEY != ''
+        run: python -m eval.run_eval --answers --gate
+
+      - uses: actions/upload-artifact@v4
+        if: always() && env.OPENAI_API_KEY != ''
+        with:
+          name: eval-results
+          path: eval/results/

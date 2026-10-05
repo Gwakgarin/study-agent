@@ -1,0 +1,7 @@
+{
+  "chunk_size": 800,
+  "min_hit_at_5": 0.92,
+  "min_accuracy": 0.9,
+  "min_refusal_on_unanswerable": 0.75,
+  "max_false_refusal": 0.05
+}
