@@ -36,3 +36,41 @@
 {"id": "u04", "question": "PIVOT 절은 어떻게 사용해?", "evidence": [], "answer": null}
 {"id": "u05", "question": "정규표현식 함수 REGEXP_SUBSTR 사용법은?", "evidence": [], "answer": null}
 {"id": "u06", "question": "NoSQL 데이터베이스의 CAP 이론이 뭐야?", "evidence": [], "answer": null}
+{"id": "q33", "question": "데이터 모델링 3단계 중에서 추상화 수준이 제일 높은 건?", "evidence": ["추상화 수준이 가장 높다"], "answer": "개념적 모델링"}
+{"id": "q34", "question": "개념 스키마와 내부 스키마 사이의 독립성은 뭐라고 불러?", "evidence": ["물리적 독립성이라 한다"], "answer": "물리적 독립성"}
+{"id": "q35", "question": "부모 엔터티가 둘 이상이고 내용이 자주 바뀌는 엔터티 유형은?", "evidence": ["행위 엔터티는 두 개 이상의 부모 엔터티로부터 발생"], "answer": "행위 엔터티"}
+{"id": "q36", "question": "코드나 일련번호처럼 설계하면서 새로 만든 속성을 뭐라고 해?", "evidence": ["설계 속성은 업무상 필요한 데이터 외에"], "answer": "설계 속성"}
+{"id": "q37", "question": "속성이 가질 수 있는 값의 범위를 부르는 말은?", "evidence": ["도메인은 각 속성이 가질 수 있는 값의 범위"], "answer": "도메인"}
+{"id": "q38", "question": "데이터를 지웠더니 남겨야 할 정보까지 같이 사라지는 현상은?", "evidence": ["삭제 이상은 어떤 데이터를 삭제할 때"], "answer": "삭제 이상"}
+{"id": "q39", "question": "모든 결정자가 후보키여야 하는 정규형은?", "evidence": ["BCNF는 모든 결정자가 후보키가 되도록"], "answer": "BCNF"}
+{"id": "q40", "question": "서브타입별로 처리하는 일이 많을 때 유리한 슈퍼타입/서브타입 변환 방식은?", "evidence": ["Plus Type은 슈퍼타입과 각 서브타입을 합쳐"], "answer": "Plus Type"}
+{"id": "q41", "question": "DELETE로 테이블 데이터를 전부 지우면 저장 공간도 해제돼?", "evidence": ["테이블이 사용하던 저장 공간은 해제되지 않는다"], "answer": "해제되지 않는다"}
+{"id": "q42", "question": "두 값이 같으면 NULL을 돌려주는 함수는?", "evidence": ["NULLIF(표현식1, 표현식2)는 두 값이 같으면 NULL"], "answer": "NULLIF"}
+{"id": "q43", "question": "WHERE 절에서 AND와 OR 중 뭐가 먼저 계산돼?", "evidence": ["AND가 OR보다 먼저 처리된다"], "answer": "AND가 먼저"}
+{"id": "q44", "question": "SQL Server에서 오름차순 정렬하면 NULL은 어디에 와?", "evidence": ["SQL Server는 NULL을 가장 작은 값으로 취급"], "answer": "처음(가장 작은 값으로 취급)"}
+{"id": "q45", "question": "다른 트랜잭션이 아직 커밋하지 않은 데이터를 읽는 현상은?", "evidence": ["Dirty Read는 다른 트랜잭션이 수정하고"], "answer": "Dirty Read"}
+{"id": "q46", "question": "3행짜리 테이블과 4행짜리 테이블을 CROSS JOIN하면 몇 행이 나와?", "evidence": ["결과는 12행이다"], "answer": "12행"}
+{"id": "q47", "question": "SELECT 절 안에 쓰는 서브쿼리는 이름이 뭐고 어떤 조건이 있어?", "evidence": ["SELECT 절에 쓰는 서브쿼리를 스칼라 서브쿼리라고"], "answer": "스칼라 서브쿼리, 한 행 한 컬럼만 반환"}
+{"id": "q48", "question": "UNION을 쓸 때 ORDER BY는 어디에 써야 해?", "evidence": ["ORDER BY는 마지막 SELECT 문 뒤에 한 번만"], "answer": "마지막 SELECT 문 뒤에 한 번만"}
+{"id": "q49", "question": "ROLLUP은 컬럼 순서를 바꾸면 결과가 달라져?", "evidence": ["인수의 순서가 바뀌면 결과가 달라진다"], "answer": "달라진다"}
+{"id": "q50", "question": "행을 N개 그룹으로 나눠 주는 윈도우 함수는?", "evidence": ["NTILE(4)는 행을 4개 그룹으로"], "answer": "NTILE"}
+{"id": "q51", "question": "SQL Server TOP에서 마지막 순위와 같은 값을 가진 행도 같이 보려면?", "evidence": ["WITH TIES 옵션을 함께 쓰면"], "answer": "WITH TIES"}
+{"id": "q52", "question": "WITH GRANT OPTION으로 준 권한을 회수하면 그 사람이 남에게 준 권한은 어떻게 돼?", "evidence": ["원래 권한을 회수하면 연쇄적으로 회수된다"], "answer": "연쇄적으로 회수된다"}
+{"id": "q53", "question": "규칙 기반 옵티마이저에서 우선순위가 제일 낮은 접근 방식은?", "evidence": ["가장 낮은 우선순위는 전체 테이블 스캔"], "answer": "전체 테이블 스캔"}
+{"id": "q54", "question": "온라인 화면처럼 첫 결과를 빨리 보여줘야 할 때 맞는 조인 방식은?", "evidence": ["온라인 프로그램에 적합"], "answer": "Nested Loop Join"}
+{"id": "q55", "question": "조인 컬럼에 인덱스가 없어도 되고 비동등 조인도 되는 조인 방식은?", "evidence": ["비동등 조인에도 사용할 수 있다"], "answer": "Sort Merge Join"}
+{"id": "q56", "question": "LIKE에서 %는 몇 글자를 뜻해?", "evidence": ["%는 0개 이상의 문자"], "answer": "0개 이상의 문자"}
+{"id": "u07", "question": "옵티마이저 힌트 /*+ INDEX */는 어떻게 써?", "evidence": [], "answer": null}
+{"id": "u08", "question": "Range 파티셔닝과 Hash 파티셔닝의 차이는?", "evidence": [], "answer": null}
+{"id": "u09", "question": "트리거(TRIGGER)는 언제 쓰나요?", "evidence": [], "answer": null}
+{"id": "u10", "question": "저장 프로시저와 사용자 정의 함수의 차이는?", "evidence": [], "answer": null}
+{"id": "u11", "question": "시퀀스(SEQUENCE) 객체는 어떻게 만들어?", "evidence": [], "answer": null}
+{"id": "u12", "question": "LISTAGG 함수로 문자열을 합치는 방법은?", "evidence": [], "answer": null}
+{"id": "u13", "question": "테이블스페이스가 뭐야?", "evidence": [], "answer": null}
+{"id": "u14", "question": "WITH 절(CTE)을 재귀적으로 쓰는 방법은?", "evidence": [], "answer": null}
+{"id": "u15", "question": "트랜잭션 격리 수준 4가지 이름을 알려줘", "evidence": [], "answer": null}
+{"id": "u16", "question": "인덱스 스킵 스캔은 언제 일어나?", "evidence": [], "answer": null}
+{"id": "u17", "question": "MongoDB에서 컬렉션은 뭐야?", "evidence": [], "answer": null}
+{"id": "u18", "question": "SQLD 시험 합격 기준 점수는 몇 점이야?", "evidence": [], "answer": null}
+{"id": "u19", "question": "B-트리와 B+트리의 차이는?", "evidence": [], "answer": null}
+{"id": "u20", "question": "데이터베이스 샤딩이 뭐야?", "evidence": [], "answer": null}
