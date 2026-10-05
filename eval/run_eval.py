@@ -3,7 +3,7 @@
 Retrieval: for each chunk size, index eval/corpus and check whether the chunk holding
 each question's evidence span comes back in the top k (Hit@k, MRR).
 
-Answers (--answers): run the real agent loop (run_turn) against the same index, then
+Answers (--answers): run the real agent loop (run_turn_stream, as the chat screen does) against the same index, then
 have a judge model grade each answer for correctness and grounding. Questions whose
 answer is not in the notes check that the agent says it doesn't know.
 
@@ -22,7 +22,7 @@ import faiss
 import numpy as np
 
 from src import search
-from src.agent import new_conversation, run_turn
+from src.agent import new_conversation, run_turn_stream
 from src.config import settings
 from src.ingest import EMBEDDING_MODEL, chunk_text, get_client
 from src.rag_eval import first_hit_rank, hit_rate_at_k, mean_reciprocal_rank
@@ -167,7 +167,15 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
     rows = []
     for q in questions:
         started = time.perf_counter()
-        messages = run_turn(new_conversation() + [{"role": "user", "content": q["question"]}], EVAL_PROJECT_ID)
+        messages = new_conversation() + [{"role": "user", "content": q["question"]}]
+        # Same loop the chat screen uses. first_feedback = the first thing the user sees
+        # (a "searching notes" status or text); first_token = the first word of the answer.
+        first_feedback = first_token = None
+        for kind, _ in run_turn_stream(messages, EVAL_PROJECT_ID):
+            now = time.perf_counter() - started
+            first_feedback = first_feedback or now
+            if kind == "delta":
+                first_token = first_token or now
         latency = time.perf_counter() - started
         answer = messages[-1].get("content") or ""
         grade = judge(q, _retrieved_context(messages), answer)
@@ -184,6 +192,8 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
                 "answer": answer,
                 "searched": searched,
                 "latency_s": round(latency, 2),
+                "first_feedback_s": round(first_feedback or latency, 2),
+                "first_token_s": round(first_token or latency, 2),
                 **grade,
             }
         )
@@ -193,6 +203,8 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
     answerable = [r for r in rows if r["answerable"]]
     unanswerable = [r for r in rows if not r["answerable"]]
     latencies = sorted(r["latency_s"] for r in rows)
+    feedback = sorted(r["first_feedback_s"] for r in rows)
+    tokens = sorted(r["first_token_s"] for r in rows)
     return {
         "chunk_size": chunk_size,
         "overlap": overlap,
@@ -204,6 +216,8 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
         "search_call_rate": sum(r["searched"] for r in rows) / len(rows),
         "latency_p50_s": latencies[len(latencies) // 2],
         "latency_max_s": latencies[-1],
+        "first_feedback_p50_s": feedback[len(feedback) // 2],
+        "first_token_p50_s": tokens[len(tokens) // 2],
         "rows": rows,
     }
 
@@ -235,7 +249,8 @@ def main() -> None:
         print(f"accuracy {a['accuracy']:.1%} | groundedness {a['groundedness']:.1%} | "
               f"refusal on unanswerable {a['refusal_on_unanswerable']:.1%} | "
               f"false refusal {a['false_refusal_on_answerable']:.1%} | "
-              f"search call rate {a['search_call_rate']:.1%} | p50 {a['latency_p50_s']}s")
+              f"search call rate {a['search_call_rate']:.1%} | p50 {a['latency_p50_s']}s | "
+              f"first feedback p50 {a['first_feedback_p50_s']}s | first token p50 {a['first_token_p50_s']}s")
 
     RESULTS_DIR.mkdir(exist_ok=True)
     out = RESULTS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}.json"
