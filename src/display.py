@@ -6,9 +6,13 @@ tool results of that turn: which notes the answer was based on, and any quiz car
 """
 
 import json
+import re
 
 SNIPPET_CHARS = 160
 MAX_SOURCES = 3
+# Notes scoring this far below the best match are left off the list; showing a
+# barely related file as a "source" makes the answer look less trustworthy.
+SOURCE_SCORE_MARGIN = 0.1
 
 
 def find_quiz(messages: list[dict], quiz_id: str) -> dict | None:
@@ -84,8 +88,12 @@ def visible_messages(messages: list[dict], answers: dict[str, dict]) -> list[dic
 
 
 def _dedupe(results: list[dict]) -> list[dict]:
+    ranked = sorted(results, key=lambda r: -r.get("score", 0))
+    top = ranked[0].get("score", 0) if ranked else 0
     best: dict[str, dict] = {}
-    for r in sorted(results, key=lambda r: -r.get("score", 0)):
+    for r in ranked:
+        if r.get("score", 0) < top - SOURCE_SCORE_MARGIN:
+            break
         best.setdefault(r.get("source", "노트"), r)
     return [
         {"source": source, "snippet": _snippet(r["text"])}
@@ -94,7 +102,10 @@ def _dedupe(results: list[dict]) -> list[dict]:
 
 
 def _snippet(text: str) -> str:
-    flat = " ".join(text.split())
+    # Notes are often Markdown; heading marks and emphasis read as noise in a preview.
+    plain = re.sub(r"(^|\n)\s*#{1,6}\s*", r"\1", text)
+    plain = re.sub(r"[*_`]{1,3}", "", plain)
+    flat = " ".join(plain.split())
     return flat if len(flat) <= SNIPPET_CHARS else flat[:SNIPPET_CHARS].rstrip() + "…"
 
 

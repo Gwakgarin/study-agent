@@ -29,7 +29,7 @@ def _turn():
                 [
                     {"source": "a.md", "text": "정규화는 논리적 모델링 단계", "score": 0.9},
                     {"source": "a.md", "text": "덜 관련된 조각", "score": 0.5},
-                    {"source": "b.md", "text": "다른 노트", "score": 0.7},
+                    {"source": "b.md", "text": "다른 노트", "score": 0.85},
                 ],
                 ensure_ascii=False,
             ),
@@ -90,3 +90,17 @@ def test_find_quiz_and_quiz_ids():
     assert display.find_quiz(messages, "q1")["answer_index"] == 1
     assert display.find_quiz(messages, "nope") is None
     assert display.quiz_ids(messages) == ["q1"]
+
+
+def test_snippet_drops_markdown_marks():
+    assert display._snippet("# 제목\n## 소제목\n**굵게** 본문 `code`") == "제목 소제목 굵게 본문 code"
+
+
+def test_weakly_related_notes_are_not_listed_as_sources():
+    results = [
+        {"source": "a.md", "text": "정답 근거", "score": 0.62},
+        {"source": "b.md", "text": "꽤 관련", "score": 0.55},
+        {"source": "c.md", "text": "거의 무관", "score": 0.41},
+    ]
+
+    assert [s["source"] for s in display._dedupe(results)] == ["a.md", "b.md"]
