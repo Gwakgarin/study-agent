@@ -104,3 +104,38 @@ def test_weakly_related_notes_are_not_listed_as_sources():
     ]
 
     assert [s["source"] for s in display._dedupe(results)] == ["a.md", "b.md"]
+
+
+def _answer_turn(answer, results):
+    return [
+        {"role": "user", "content": "질문"},
+        {"role": "assistant", "tool_calls": [_call("c1", "search_notes")]},
+        {"role": "tool", "tool_call_id": "c1", "content": json.dumps(results, ensure_ascii=False)},
+        {"role": "assistant", "content": answer},
+    ]
+
+
+def test_written_answer_lists_only_notes_it_draws_on():
+    results = [
+        {"source": "b.md", "text": "해시 조인은 등가 조인에서만 사용할 수 있다", "score": 0.45},
+        {"source": "a.md", "text": "정규화는 논리적 모델링 단계에서 수행한다", "score": 0.41},
+    ]
+
+    answer = display.visible_messages(_answer_turn("정규화는 논리적 모델링 단계에서 수행합니다.", results), {})[-1]
+
+    assert [s["source"] for s in answer["sources"]] == ["a.md"]
+
+
+def test_off_note_answer_gets_no_sources():
+    # A reworded search ("트리거 사용") pulls unrelated chunks; a refusal or a
+    # general-knowledge answer must not be shown as if those notes backed it.
+    results = [
+        {"source": "06_관리구문과_튜닝.md", "text": "선행 테이블이 작을수록 유리하다", "score": 0.41},
+        {"source": "03_SQL_기본.md", "text": "집계 결과에 대한 조건은 HAVING 절에 작성한다", "score": 0.33},
+    ]
+
+    refusal = "노트에서 트리거에 대한 내용을 찾지 못했어요."
+    general = "트리거는 INSERT, UPDATE 같은 이벤트에 자동으로 실행됩니다."
+    for text in [refusal, general]:
+        answer = display.visible_messages(_answer_turn(text, results), {})[-1]
+        assert "sources" not in answer
