@@ -4,6 +4,7 @@ import json
 
 from src.config import settings
 from src.ingest import get_client
+from src.refusal import HOLD_CHARS, clip_refusal, first_sentence_end
 from src.tools import TOOL_SCHEMAS, build_tool_functions
 
 CHAT_MODEL = settings.chat_model
@@ -63,6 +64,8 @@ def run_turn(messages: list[dict], project_id: str) -> list[dict]:
         messages.append(message.model_dump(exclude_none=True))
 
         if not message.tool_calls:
+            if message.content and (clipped := clip_refusal(message.content)):
+                messages[-1]["content"] = clipped
             return messages
 
         for tool_call in message.tool_calls:
@@ -102,13 +105,23 @@ def run_turn_stream(messages: list[dict], project_id: str):
         )
         content = []
         calls: dict[int, dict] = {}
+        # The first sentence is held back until we know whether it is a refusal; if it
+        # is, only the clipped refusal is shown (see src/refusal.py).
+        held, decided = "", None
         for chunk in stream:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
             if delta.content:
                 content.append(delta.content)
-                yield "delta", delta.content
+                if decided == "pass":
+                    yield "delta", delta.content
+                elif decided is None:
+                    held += delta.content
+                    if first_sentence_end(held) is not None or len(held) >= HOLD_CHARS:
+                        decided = "clip" if clip_refusal(held) else "pass"
+                        if decided == "pass":
+                            yield "delta", held
             # Tool calls arrive in pieces: an id and name first, then the arguments
             # JSON split across chunks, all keyed by the call's index.
             for piece in delta.tool_calls or []:
@@ -121,8 +134,16 @@ def run_turn_stream(messages: list[dict], project_id: str):
                     call["arguments"] += piece.function.arguments
 
         if not calls:
-            messages.append({"role": "assistant", "content": "".join(content)})
+            full = "".join(content)
+            clipped = clip_refusal(full) if decided != "pass" else None
+            if clipped:
+                yield "delta", clipped
+            elif decided is None and held:
+                yield "delta", held
+            messages.append({"role": "assistant", "content": clipped or full})
             return
+        if decided is None and held:
+            yield "delta", held
 
         ordered = [calls[i] for i in sorted(calls)]
         assistant = {

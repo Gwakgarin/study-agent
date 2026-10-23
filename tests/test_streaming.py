@@ -20,7 +20,7 @@ def test_streams_text_and_saves_final_message(monkeypatch):
 
     events = _run(messages, fake, {}, monkeypatch)
 
-    assert events == [("delta", "안녕"), ("delta", "하세요")]
+    assert events == [("delta", "안녕하세요")]
     assert messages[-1] == {"role": "assistant", "content": "안녕하세요"}
     assert fake.chat.completions.calls[0]["stream"] is True
 
@@ -40,7 +40,7 @@ def test_reassembles_split_tool_call_then_streams_answer(monkeypatch):
 
     assert seen == ["조인"]
     assert events[0] == ("status", "노트를 찾고 있어요")
-    assert [t for k, t in events if k == "delta"] == ["조인은", " ..."]
+    assert "".join(t for k, t in events if k == "delta") == "조인은 ..."
     call = messages[-3]["tool_calls"][0]
     assert call["function"] == {"name": "search_notes", "arguments": '{"query": "조인"}'}
     assert json.loads(messages[-2]["content"]) == [{"text": "조인 설명"}]
@@ -118,3 +118,15 @@ def test_stream_checks_happen_before_streaming(client, monkeypatch):
     res = client.post("/api/chat/stream", json=body)
 
     assert res.status_code == 429
+
+
+def test_refusal_is_clipped_before_the_lecture_is_shown(monkeypatch):
+    fake = FakeOpenAI(chat_responses=[make_stream(["노트에서 찾지 못했어요. ", "일반적으로 CAP 이론은 ", "세 가지입니다."])])
+    messages = agent.new_conversation() + [{"role": "user", "content": "CAP?"}]
+
+    events = _run(messages, fake, {}, monkeypatch)
+
+    shown = "".join(t for k, t in events if k == "delta")
+    assert shown == messages[-1]["content"]
+    assert shown.startswith("노트에서 찾지 못했어요.")
+    assert "CAP" not in shown
