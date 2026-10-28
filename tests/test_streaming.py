@@ -121,7 +121,9 @@ def test_stream_checks_happen_before_streaming(client, monkeypatch):
 
 
 def test_refusal_is_clipped_before_the_lecture_is_shown(monkeypatch):
-    fake = FakeOpenAI(chat_responses=[make_stream(["노트에서 찾지 못했어요. ", "일반적으로 CAP 이론은 ", "세 가지입니다."])])
+    fake = FakeOpenAI(
+        chat_responses=[make_stream(["노트에서 찾지 못했어요. ", "일반적으로 CAP 이론은 ", "세 가지입니다."])]
+    )
     messages = agent.new_conversation() + [{"role": "user", "content": "CAP?"}]
 
     events = _run(messages, fake, {}, monkeypatch)
