@@ -12,3 +12,8 @@ def test_cuts_a_refusal_clause_that_runs_into_a_lecture():
 
 def test_leaves_answers_from_the_notes_alone():
     assert clip_refusal("노트에 따르면 정규화는 중복을 줄이는 것입니다. 일반적으로 3NF까지 합니다.") is None
+
+
+def test_catches_a_refusal_worded_with_a_particle():
+    text = "노트에서 CAP 이론에 대한 구체적인 내용을 찾지는 못했어요. CAP 이론은 세 가지 속성을 설명합니다."
+    assert clip_refusal(text) == f"노트에서 CAP 이론에 대한 구체적인 내용을 찾지는 못했어요. {GUIDANCE}"

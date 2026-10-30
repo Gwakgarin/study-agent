@@ -11,7 +11,7 @@ GUIDANCE = "관련 노트를 올려 주시면 그 내용으로 답해 드릴게�
 HOLD_CHARS = 90
 
 _SENTENCE_END = re.compile(r"(?<=[.!?。])\s|(?<=다)\.|\n")
-_REFUSAL = re.compile(r"노트.{0,40}?(없|찾지 못|찾을 수 없|않(?:았|습|아|네))")
+_REFUSAL = re.compile(r"노트.{0,40}?(없|찾지(?:는)? 못|찾을 수 없|않(?:았|습|아|네))")
 # A refusal clause often continues into the lecture: "...없지만, 일반적으로는 ...".
 _CLAUSE_BREAK = re.compile(r"(없지만|없으나|없습니다만|못했지만|않지만|않습니다만|없는데|없고)")
 
