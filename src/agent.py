@@ -30,6 +30,12 @@ def new_conversation() -> list[dict]:
     return [{"role": "system", "content": SYSTEM_PROMPT}]
 
 
+def _tool_choice(round_no: int) -> str:
+    # On the last round the model must answer with what it has; otherwise a question it
+    # keeps re-searching ends in an error instead of a reply.
+    return "none" if round_no == settings.max_tool_rounds - 1 else "auto"
+
+
 class ToolLoopError(RuntimeError):
     """The model kept calling tools without ever producing a final answer."""
 
@@ -54,11 +60,12 @@ def run_turn(messages: list[dict], project_id: str) -> list[dict]:
     client = get_client()
     tool_functions = build_tool_functions(project_id)
 
-    for _ in range(settings.max_tool_rounds):
+    for round_no in range(settings.max_tool_rounds):
         response = client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
             tools=TOOL_SCHEMAS,
+            tool_choice=_tool_choice(round_no),
         )
         message = response.choices[0].message
         messages.append(message.model_dump(exclude_none=True))
@@ -96,11 +103,12 @@ def run_turn_stream(messages: list[dict], project_id: str):
     client = get_client()
     tool_functions = build_tool_functions(project_id)
 
-    for _ in range(settings.max_tool_rounds):
+    for round_no in range(settings.max_tool_rounds):
         stream = client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
             tools=TOOL_SCHEMAS,
+            tool_choice=_tool_choice(round_no),
             stream=True,
         )
         content = []

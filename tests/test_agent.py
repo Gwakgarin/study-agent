@@ -135,3 +135,9 @@ def test_run_turn_stops_when_model_never_stops_calling_tools(monkeypatch):
         agent.run_turn(agent.new_conversation(), "p1")
 
     assert len(fake_client.chat.completions.calls) == 3
+
+
+def test_last_round_forbids_tools_so_the_model_has_to_answer():
+    assert [agent._tool_choice(i) for i in range(agent.settings.max_tool_rounds)] == (
+        ["auto"] * (agent.settings.max_tool_rounds - 1) + ["none"]
+    )
