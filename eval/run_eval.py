@@ -23,9 +23,10 @@ import faiss
 import numpy as np
 
 from src import search
+from src.hybrid import BM25, WEIGHTS, rrf
 from src.agent import new_conversation, run_turn_stream
 from src.config import settings
-from src.ingest import EMBEDDING_MODEL, chunk_text, get_client
+from src.ingest import EMBEDDING_MODEL, chunk_document, embedding_text, get_client
 from src.rag_eval import first_hit_rank, gate_failures, hit_rate_at_k, mean_reciprocal_rank
 
 EVAL_DIR = Path(__file__).resolve().parent
@@ -65,10 +66,11 @@ def load_questions() -> list[dict]:
 
 
 def load_chunks(chunk_size: int, overlap: int) -> list[dict]:
+    # Same chunker the app uses when a note is uploaded, so the numbers describe real behaviour.
     chunks = []
     for path in sorted(CORPUS_DIR.glob("*.md")):
-        for i, text in enumerate(chunk_text(path.read_text(encoding="utf-8"), chunk_size, overlap)):
-            chunks.append({"source": path.name, "chunk_index": i, "text": text})
+        for i, chunk in enumerate(chunk_document(path.read_text(encoding="utf-8"), chunk_size, overlap)):
+            chunks.append({"source": path.name, "chunk_index": i, **chunk})
     return chunks
 
 
@@ -98,7 +100,7 @@ class EmbeddingCache:
 
 
 def build_index(chunks: list[dict], cache: EmbeddingCache) -> faiss.Index:
-    vectors = cache.embed([c["text"] for c in chunks])
+    vectors = cache.embed([embedding_text(c) for c in chunks])
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
     return index
@@ -108,25 +110,39 @@ def evaluate_retrieval(chunk_size: int, overlap: int, questions: list[dict], cac
     answerable = [q for q in questions if q["evidence"]]
     chunks = load_chunks(chunk_size, overlap)
     index = build_index(chunks, cache)
+    bm25 = BM25([embedding_text(c) for c in chunks])
     query_vectors = cache.embed([q["question"] for q in answerable])
-    _, indices = index.search(query_vectors, min(TOP_K, len(chunks)))
+    pool = min(search.POOL, len(chunks))
+    _, indices = index.search(query_vectors, pool)
 
-    ranks, misses = [], []
-    for q, row in zip(answerable, indices):
-        retrieved = [chunks[i]["text"] for i in row if i != -1]
-        rank = first_hit_rank(retrieved, q["evidence"])
-        ranks.append(rank)
-        if rank is None or rank > 5:
-            misses.append({"id": q["id"], "question": q["question"], "rank": rank})
+    # The app searches with "hybrid"; the other two show what each half contributes.
+    rankers = {
+        "dense": lambda q, row: [int(i) for i in row if i != -1],
+        "bm25": lambda q, row: bm25.rank(q, pool),
+        "hybrid": lambda q, row: rrf([[int(i) for i in row if i != -1], bm25.rank(q, pool)], WEIGHTS),
+    }
+    modes = {}
+    for name, rank_fn in rankers.items():
+        ranks, misses = [], []
+        for q, row in zip(answerable, indices):
+            retrieved = [chunks[i]["text"] for i in rank_fn(q["question"], row)[:TOP_K]]
+            rank = first_hit_rank(retrieved, q["evidence"])
+            ranks.append(rank)
+            if rank is None or rank > 5:
+                misses.append({"id": q["id"], "question": q["question"], "rank": rank})
+        modes[name] = {
+            **{f"hit@{k}": hit_rate_at_k(ranks, k) for k in KS},
+            "mrr": mean_reciprocal_rank(ranks),
+            "misses_top5": misses,
+        }
 
     return {
         "chunk_size": chunk_size,
         "overlap": overlap,
         "chunks": len(chunks),
         "questions": len(answerable),
-        **{f"hit@{k}": hit_rate_at_k(ranks, k) for k in KS},
-        "mrr": mean_reciprocal_rank(ranks),
-        "misses_top5": misses,
+        **modes["hybrid"],
+        "modes": modes,
     }
 
 
@@ -244,6 +260,13 @@ def main() -> None:
     for r in report["retrieval"]:
         print(f"| {r['chunk_size']} | {r['chunks']} | {r['hit@1']:.1%} | {r['hit@3']:.1%} | "
               f"{r['hit@5']:.1%} | {r['mrr']:.3f} |")
+    print("\nBy search mode (hybrid is what the app uses)")
+    print("| chunk_size | mode | Hit@1 | Hit@3 | Hit@5 | MRR |")
+    print("|---:|---|---:|---:|---:|---:|")
+    for r in report["retrieval"]:
+        for name, m in r["modes"].items():
+            print(f"| {r['chunk_size']} | {name} | {m['hit@1']:.1%} | {m['hit@3']:.1%} | "
+                  f"{m['hit@5']:.1%} | {m['mrr']:.3f} |")
 
     if args.answers:
         print(f"\nAnswers (chunk_size {args.chunk_size})")

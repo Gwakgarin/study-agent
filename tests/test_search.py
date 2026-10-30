@@ -91,3 +91,20 @@ def test_invalidate_forces_reload(tmp_path, monkeypatch, fake_openai_factory):
     search.invalidate("p1")
 
     assert "p1" not in search._cache
+
+
+def test_search_notes_surfaces_an_exact_term_the_embedding_ranks_low(tmp_path, monkeypatch, fake_openai_factory):
+    monkeypatch.setattr(projects, "PROJECTS_ROOT", tmp_path / "projects")
+    metadata = [
+        {"source": "a.md", "chunk_index": 0, "text": "윈도우 함수는 행 사이의 관계를 계산한다"},
+        {"source": "b.md", "chunk_index": 0, "text": "집계 함수는 여러 행을 하나로 묶는다"},
+        {"source": "c.md", "chunk_index": 0, "text": "NTILE 은 행을 N개 그룹으로 나눈다"},
+    ]
+    # The query vector sits right on a.md and b.md and far from c.md.
+    _build_fake_index("p1", [[1.0, 0.0], [0.9, 0.1], [0.0, 1.0]], metadata)
+    monkeypatch.setattr(search, "get_client", lambda: fake_openai_factory(vectors_by_text={"NTILE": [1.0, 0.0]}))
+
+    results = search.search_notes("p1", "NTILE", k=1)
+
+    assert results[0]["source"] == "c.md"
+    assert results[0]["score"] == pytest.approx(0.0, abs=1e-6)

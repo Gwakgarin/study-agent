@@ -74,3 +74,29 @@
 {"id": "u18", "question": "SQLD 시험 합격 기준 점수는 몇 점이야?", "evidence": [], "answer": null}
 {"id": "u19", "question": "B-트리와 B+트리의 차이는?", "evidence": [], "answer": null}
 {"id": "u20", "question": "데이터베이스 샤딩이 뭐야?", "evidence": [], "answer": null}
+{"id": "p01", "question": "테이블을 잘게 쪼갰더니 오히려 SELECT가 느려질 수 있는 이유는?", "evidence": ["조회 시에는 조인이 많아져 성능이 저하될 수 있다"], "answer": "조인이 많아져서"}
+{"id": "p02", "question": "같은 정보가 여러 곳에 있는데 일부만 고쳐져서 서로 안 맞게 되는 문제는?", "evidence": ["갱신 이상은 중복된 데이터 중 일부만 수정되어 데이터가 불일치하는 현상이다"], "answer": "갱신 이상"}
+{"id": "p03", "question": "한 줄이 너무 길어서 저장 공간이 두 블록에 걸쳐 나뉘는 현상은?", "evidence": ["Row Chaining은 로우 길이가 너무 길어서"], "answer": "Row Chaining"}
+{"id": "p04", "question": "사용자가 자료가 어느 서버에 있는지 몰라도 되는 성질은?", "evidence": ["위치 투명성은 사용하려는 데이터의 저장 장소를 사용자가 알 필요가 없다는 의미다"], "answer": "위치 투명성"}
+{"id": "p05", "question": "지우는 명령 중에 실수해도 되돌릴 수 있는 건 뭐야?", "evidence": ["DELETE는 DML이므로 커밋 전에는 롤백할 수 있고"], "answer": "DELETE"}
+{"id": "p06", "question": "빈 칸이랑 값이 아직 없는 상태는 같은 거야?", "evidence": ["NULL은 아직 정의되지 않은 값으로, 0이나 공백과는 다르다"], "answer": "다르다"}
+{"id": "p07", "question": "여러 값 중에 비어 있지 않은 첫 번째 걸 골라주는 함수는?", "evidence": ["COALESCE(표현식1, 표현식2, ...)는 NULL이 아닌 첫 번째 표현식을 반환한다"], "answer": "COALESCE"}
+{"id": "p08", "question": "한쪽이 3줄, 다른 쪽이 4줄일 때 가능한 모든 짝을 만들면 몇 줄이 나와?", "evidence": ["A 테이블이 3행, B 테이블이 4행이면 결과는 12행이다"], "answer": "12행"}
+{"id": "p09", "question": "조회 때 붙인 별명을 필터 구문에서는 못 쓰는 이유는?", "evidence": ["SELECT 절에서 정의한 별칭은 WHERE 절에서는 사용할 수 없지만 ORDER BY 절에서는 사용할 수 있다"], "answer": "실행 순서상 SELECT가 WHERE보다 나중"}
+{"id": "p10", "question": "조건식에 AND랑 OR가 섞여 있으면 뭐부터 계산해?", "evidence": ["AND가 OR보다 먼저 처리된다"], "answer": "AND"}
+{"id": "p11", "question": "합계나 평균 결과로 걸러내는 조건은 어디에 적어야 해?", "evidence": ["집계 결과에 대한 조건은 HAVING 절에 작성해야 한다"], "answer": "HAVING"}
+{"id": "p12", "question": "오라클에서 오름차순으로 정렬하면 값이 없는 행은 맨 앞이야 맨 뒤야?", "evidence": ["Oracle은 NULL을 가장 큰 값으로 취급해 오름차순에서 마지막에 오고"], "answer": "맨 뒤"}
+{"id": "p13", "question": "다른 사람이 아직 확정하지 않은 값을 읽어 버리는 문제는?", "evidence": ["Dirty Read는 다른 트랜잭션이 수정하고 아직 커밋하지 않은 데이터를 읽는 것이다"], "answer": "Dirty Read"}
+{"id": "p14", "question": "직원-상사처럼 트리 모양 자료를 맨 위부터 훑어 내려가는 오라클 문법은?", "evidence": ["START WITH로 루트 데이터를 지정하고 CONNECT BY로 부모와 자식 관계를 지정한다"], "answer": "START WITH, CONNECT BY"}
+{"id": "p15", "question": "바깥 쿼리의 열을 가져다 쓰는 안쪽 쿼리를 뭐라고 불러?", "evidence": ["연관 서브쿼리(Correlated Subquery)는 서브쿼리가 메인쿼리의 컬럼을 참조하는 서브쿼리다"], "answer": "연관 서브쿼리"}
+{"id": "p16", "question": "두 결과를 이어 붙일 때 중복을 걸러내지 않아서 더 빠른 건?", "evidence": ["UNION ALL은 중복을 제거하지 않고 결과를 그대로 합친다"], "answer": "UNION ALL"}
+{"id": "p17", "question": "자료를 직접 갖지 않고 정의만 저장하는 가상의 객체는?", "evidence": ["뷰는 실제 데이터를 갖지 않는 가상 테이블로"], "answer": "뷰"}
+{"id": "p18", "question": "전달 대비 매출 증감을 보려면 바로 앞 줄 값을 가져오는 함수는?", "evidence": ["LAG는 파티션별 윈도우에서 이전 몇 번째 행의 값을 가져오고"], "answer": "LAG"}
+{"id": "p19", "question": "공동 1등이 있어도 다음 등수가 2등으로 이어지는 순위 함수는?", "evidence": ["DENSE_RANK는 동일한 값에 같은 순위를 부여하지만 다음 순위를 건너뛰지 않는다"], "answer": "DENSE_RANK"}
+{"id": "p20", "question": "마지막 값을 구했는데 자꾸 현재 줄의 값이 나오는 이유는?", "evidence": ["LAST_VALUE를 그냥 쓰면 현재 행까지의 마지막 값"], "answer": "범위 지정을 생략하면 기본이 현재 행까지"}
+{"id": "p21", "question": "오라클에서 점수 높은 순으로 상위 몇 건만 뽑으려면 왜 쿼리를 한 겹 더 감싸야 해?", "evidence": ["ROWNUM은 ORDER BY보다 먼저 부여되므로"], "answer": "ROWNUM이 정렬보다 먼저 붙어서"}
+{"id": "p22", "question": "권한을 받은 사람이 그걸 또 다른 사람에게 넘겨줄 수 있게 하는 옵션은?", "evidence": ["WITH GRANT OPTION으로 부여받은 사용자는 다른 사용자에게 그 권한을 다시 부여할 수 있으며"], "answer": "WITH GRANT OPTION"}
+{"id": "p23", "question": "있으면 고치고 없으면 새로 넣는 걸 한 문장으로 하려면?", "evidence": ["MERGE 문은 대상 테이블에 조건에 맞는 데이터가 있으면 UPDATE하고, 없으면 INSERT한다"], "answer": "MERGE"}
+{"id": "p24", "question": "DB가 가끔 엉뚱한 방식으로 쿼리를 실행하는 원인은?", "evidence": ["통계 정보가 부정확하면 잘못된 실행 계획이 선택될 수 있다"], "answer": "통계 정보 부정확"}
+{"id": "p25", "question": "남녀처럼 값 종류가 몇 개 안 되는 열에 어울리는 색인은?", "evidence": ["비트맵 인덱스는 성별처럼 값의 종류가 적은 컬럼에 적합하며"], "answer": "비트맵 인덱스"}
+{"id": "p26", "question": "결과를 최대한 빨리 화면에 띄워야 하는 서비스에 맞는 조인 방식은?", "evidence": ["결과를 가능한 한 빨리 화면에 보여줘야 하는 온라인 프로그램에 적합하다"], "answer": "NL 조인"}
