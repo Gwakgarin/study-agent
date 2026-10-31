@@ -55,7 +55,7 @@ JUDGE_PROMPT = """학습 노트 기반 Q&A 에이전트의 답변을 채점합�
 {answer}
 
 아래 기준으로 JSON만 출력하세요.
-- correct: 정답이 있는 질문이면 답변이 정답과 같은 내용을 말하는지. 정답이 null이면 false.
+- correct: 정답이 있는 질문이면 답변이 정답과 같은 내용을 말하는지. 정답이 null이면 거절 여부와 상관없이 항상 false (거절은 refused로만 본다).
 - grounded: 답변의 사실 주장이 모두 검색한 노트 내용으로 뒷받침되는지. 모른다고만 답했으면 true.
 - refused: 노트에 없어서 답할 수 없다고 말했는지.
 {{"correct": true, "grounded": true, "refused": false, "reason": "한 문장"}}"""
@@ -160,7 +160,7 @@ def _retrieved_context(messages: list[dict]) -> str:
     return "\n---\n".join(parts) or "(검색 결과 없음)"
 
 
-def judge(question: dict, context: str, answer: str) -> dict:
+def judge(question: dict, context: str, answer: str, model: str) -> dict:
     prompt = JUDGE_PROMPT.format(
         question=question["question"],
         reference=json.dumps(question["answer"], ensure_ascii=False),
@@ -168,7 +168,7 @@ def judge(question: dict, context: str, answer: str) -> dict:
         answer=answer,
     )
     response = get_client().chat.completions.create(
-        model=settings.chat_model,
+        model=model,
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
         temperature=0,
@@ -176,14 +176,17 @@ def judge(question: dict, context: str, answer: str) -> dict:
     return json.loads(response.choices[0].message.content)
 
 
-def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache: EmbeddingCache) -> dict:
+def evaluate_answers(
+    chunk_size: int, overlap: int, questions: list[dict], cache: EmbeddingCache, repeats: int = 1, judge_model: str | None = None
+) -> dict:
+    judge_model = judge_model or settings.judge_model
     chunks = load_chunks(chunk_size, overlap)
     # search_notes reads indexes through this cache, so the agent searches the eval
     # corpus without touching data/projects.
     search._cache[EVAL_PROJECT_ID] = (build_index(chunks, cache), chunks)
 
     rows = []
-    for q in questions:
+    for q in [q for _ in range(repeats) for q in questions]:
         started = time.perf_counter()
         messages = new_conversation() + [{"role": "user", "content": q["question"]}]
         # Same loop the chat screen uses. first_feedback = the first thing the user sees
@@ -196,7 +199,10 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
                 first_token = first_token or now
         latency = time.perf_counter() - started
         answer = messages[-1].get("content") or ""
-        grade = judge(q, _retrieved_context(messages), answer)
+        context = _retrieved_context(messages)
+        grade = judge(q, context, answer, judge_model)
+        # The agent's own model grading the same answer: kept to show how much it flatters itself.
+        self_grade = judge(q, context, answer, settings.chat_model) if judge_model != settings.chat_model else grade
         searched = any(
             call["function"]["name"] == "search_notes"
             for m in messages
@@ -208,26 +214,35 @@ def evaluate_answers(chunk_size: int, overlap: int, questions: list[dict], cache
                 "answerable": bool(q["evidence"]),
                 "question": q["question"],
                 "answer": answer,
+                "context": context[:2000],
                 "searched": searched,
                 "latency_s": round(latency, 2),
                 "first_feedback_s": round(first_feedback or latency, 2),
                 "first_token_s": round(first_token or latency, 2),
+                "self_grade": self_grade,
                 **grade,
             }
         )
+        flag = "" if all(bool(grade.get(k)) == bool(self_grade.get(k)) for k in ("correct", "refused")) else "  <-- judges differ"
         print(f"  {q['id']}: correct={grade.get('correct')} grounded={grade.get('grounded')} "
-              f"refused={grade.get('refused')} ({latency:.1f}s)")
+              f"refused={grade.get('refused')} ({latency:.1f}s){flag}")
 
     answerable = [r for r in rows if r["answerable"]]
     unanswerable = [r for r in rows if not r["answerable"]]
     latencies = sorted(r["latency_s"] for r in rows)
     feedback = sorted(r["first_feedback_s"] for r in rows)
     tokens = sorted(r["first_token_s"] for r in rows)
+    agree = [r for r in rows if all(bool(r.get(k)) == bool(r["self_grade"].get(k)) for k in ("correct", "refused"))]
+    self_correct = sum(bool(r["self_grade"].get("correct")) for r in answerable) / len(answerable)
     return {
         "chunk_size": chunk_size,
         "overlap": overlap,
+        "repeats": repeats,
         "chat_model": settings.chat_model,
+        "judge_model": judge_model,
         "accuracy": sum(bool(r.get("correct")) for r in answerable) / len(answerable),
+        "accuracy_by_agent_model": self_correct,
+        "judge_agreement": len(agree) / len(rows),
         "groundedness": sum(bool(r.get("grounded")) for r in rows) / len(rows),
         "refusal_on_unanswerable": sum(bool(r.get("refused")) for r in unanswerable) / len(unanswerable),
         "false_refusal_on_answerable": sum(bool(r.get("refused")) for r in answerable) / len(answerable),
@@ -246,6 +261,8 @@ def main() -> None:
     parser.add_argument("--overlap", type=int, default=settings.chunk_overlap)
     parser.add_argument("--answers", action="store_true", help="also grade end-to-end agent answers")
     parser.add_argument("--chunk-size", type=int, default=settings.chunk_size, help="chunk size for --answers")
+    parser.add_argument("--repeats", type=int, default=1, help="run each question this many times (--answers)")
+    parser.add_argument("--judge-model", default=None, help="model that grades answers (default: settings.judge_model)")
     parser.add_argument("--gate", action="store_true", help="exit with 1 if a metric misses eval/gates.json")
     args = parser.parse_args()
 
@@ -270,8 +287,10 @@ def main() -> None:
 
     if args.answers:
         print(f"\nAnswers (chunk_size {args.chunk_size})")
-        a = evaluate_answers(args.chunk_size, args.overlap, questions, cache)
+        a = evaluate_answers(args.chunk_size, args.overlap, questions, cache, args.repeats, args.judge_model)
         report["answers"] = a
+        print(f"judge {a['judge_model']} (agent {a['chat_model']}) | agreement with agent-model grading "
+              f"{a['judge_agreement']:.1%} | accuracy if agent graded itself {a['accuracy_by_agent_model']:.1%}")
         print(f"accuracy {a['accuracy']:.1%} | groundedness {a['groundedness']:.1%} | "
               f"refusal on unanswerable {a['refusal_on_unanswerable']:.1%} | "
               f"false refusal {a['false_refusal_on_answerable']:.1%} | "

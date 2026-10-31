@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     chat_model: str = "gpt-4o-mini"
     quiz_model: str = "gpt-4o-mini"
+    # Grades answers in eval/. A different model from chat_model, so the agent does not mark its own work.
+    judge_model: str = "gpt-4o"
 
     # The OpenAI SDK already retries connection errors, 429 and 5xx with backoff.
     openai_timeout_seconds: float = 30.0
