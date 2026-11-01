@@ -55,10 +55,17 @@ def _run_tool(func, name: str, raw_args: str | None) -> dict:
         return {"error": f"{name} failed: {exc}"}
 
 
+def _last_user_text(messages: list[dict]) -> str | None:
+    for message in reversed(messages):
+        if message.get("role") == "user" and isinstance(message.get("content"), str):
+            return message["content"]
+    return None
+
+
 def run_turn(messages: list[dict], project_id: str) -> list[dict]:
     """Run one assistant turn, including any tool calls, appending to messages."""
     client = get_client()
-    tool_functions = build_tool_functions(project_id)
+    tool_functions = build_tool_functions(project_id, _last_user_text(messages))
 
     for round_no in range(settings.max_tool_rounds):
         response = client.chat.completions.create(
@@ -101,7 +108,7 @@ def run_turn_stream(messages: list[dict], project_id: str):
     """Same loop as run_turn, but yields ("status", text) while tools run and
     ("delta", text) as the final answer is generated. messages is updated in place."""
     client = get_client()
-    tool_functions = build_tool_functions(project_id)
+    tool_functions = build_tool_functions(project_id, _last_user_text(messages))
 
     for round_no in range(settings.max_tool_rounds):
         stream = client.chat.completions.create(

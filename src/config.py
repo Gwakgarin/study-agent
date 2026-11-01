@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # Grades answers in eval/. A different model from chat_model, so the agent does not mark its own work.
     judge_model: str = "gpt-4o"
 
+    # Reads retrieved notes and decides whether they can answer; when not, the agent gets no results.
+    gate_model: str = "gpt-4o-mini"
+    answer_gate: bool = True
+
     # The OpenAI SDK already retries connection errors, 429 and 5xx with backoff.
     openai_timeout_seconds: float = 30.0
     openai_max_retries: int = 2

@@ -38,7 +38,7 @@ def test_run_turn_dispatches_tool_call_then_returns_final_message(monkeypatch):
 
     calls = []
     fake_tools = {"search_notes": lambda query: calls.append(query) or [{"text": "..."}]}
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: fake_tools)
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: fake_tools)
 
     messages = agent.new_conversation()
     messages.append({"role": "user", "content": "faiss 설명해줘"})
@@ -61,7 +61,7 @@ def test_run_turn_reports_unknown_tool_without_crashing(monkeypatch):
         ]
     )
     monkeypatch.setattr(agent, "get_client", lambda: fake_client)
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {})
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {})
 
     messages = agent.new_conversation()
     result = agent.run_turn(messages, "p1")
@@ -76,7 +76,7 @@ def test_run_turn_binds_tools_to_the_given_project(monkeypatch):
 
     seen_project_ids = []
     monkeypatch.setattr(
-        agent, "build_tool_functions", lambda project_id: seen_project_ids.append(project_id) or {}
+        agent, "build_tool_functions", lambda project_id, question=None: seen_project_ids.append(project_id) or {}
     )
 
     agent.run_turn(agent.new_conversation(), "biology-101")
@@ -96,7 +96,7 @@ def test_run_turn_passes_tool_exception_back_to_model(monkeypatch):
     def broken_search(query):
         raise FileNotFoundError("index missing")
 
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": broken_search})
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": broken_search})
 
     result = agent.run_turn(agent.new_conversation(), "p1")
 
@@ -113,7 +113,7 @@ def test_run_turn_reports_invalid_tool_arguments(monkeypatch):
         ]
     )
     monkeypatch.setattr(agent, "get_client", lambda: fake_client)
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": lambda query: []})
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": lambda query: []})
 
     result = agent.run_turn(agent.new_conversation(), "p1")
 
@@ -129,7 +129,7 @@ def test_run_turn_stops_when_model_never_stops_calling_tools(monkeypatch):
         ]
     )
     monkeypatch.setattr(agent, "get_client", lambda: fake_client)
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: {"search_notes": lambda: []})
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": lambda: []})
 
     with pytest.raises(agent.ToolLoopError):
         agent.run_turn(agent.new_conversation(), "p1")

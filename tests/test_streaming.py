@@ -10,7 +10,7 @@ from tests.conftest import FakeOpenAI, make_stream
 
 def _run(messages, fake_client, tools, monkeypatch):
     monkeypatch.setattr(agent, "get_client", lambda: fake_client)
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id: tools)
+    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: tools)
     return list(agent.run_turn_stream(messages, "p1"))
 
 

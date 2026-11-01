@@ -9,10 +9,41 @@ def test_search_notes_delegates_to_search_module(monkeypatch):
         tools, "_search_notes", lambda project_id, query, k: calls.append((project_id, query, k)) or [{"text": "x"}]
     )
 
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: True)
+
     result = tools.search_notes("p1", "faiss란", k=3)
 
     assert calls == [("p1", "faiss란", 3)]
     assert result == [{"text": "x"}]
+
+
+def test_search_notes_returns_nothing_when_gate_says_no(monkeypatch):
+    monkeypatch.setattr(tools, "_search_notes", lambda project_id, query, k: [{"text": "x"}])
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: False)
+
+    assert tools.search_notes("p1", "트리거란") == []
+
+
+def test_search_notes_retries_with_the_users_question_when_the_query_misses(monkeypatch):
+    searched = []
+
+    def fake_search(project_id, query, k):
+        searched.append(query)
+        return [{"text": query}]
+
+    monkeypatch.setattr(tools, "_search_notes", fake_search)
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: chunks[0]["text"] == "NULL이 뭐야?")
+
+    assert tools.search_notes("p1", "빈 문자열", _question="NULL이 뭐야?") == [{"text": "NULL이 뭐야?"}]
+    assert searched == ["빈 문자열", "NULL이 뭐야?"]
+
+
+def test_search_notes_skips_gate_when_disabled(monkeypatch):
+    monkeypatch.setattr(tools, "_search_notes", lambda project_id, query, k: [{"text": "x"}])
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: False)
+    monkeypatch.setattr(tools.settings, "answer_gate", False)
+
+    assert tools.search_notes("p1", "트리거란") == [{"text": "x"}]
 
 
 def test_generate_quiz_returns_error_when_no_notes_found(monkeypatch):

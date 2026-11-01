@@ -5,6 +5,7 @@ import json
 import uuid
 
 from src.config import settings
+from src.gate import can_answer
 from src.ingest import get_client
 from src.search import search_notes as _search_notes
 from src.tracker import get_weak_topics as _get_weak_topics
@@ -13,8 +14,16 @@ from src.tracker import record_answer as _record_answer
 QUIZ_MODEL = settings.quiz_model
 
 
-def search_notes(project_id: str, query: str, k: int = 5) -> list[dict]:
-    return _search_notes(project_id, query, k=k)
+def search_notes(project_id: str, query: str, k: int = 5, _question: str | None = None) -> list[dict]:
+    results = _search_notes(project_id, query, k=k)
+    if not settings.answer_gate or can_answer(query, results, _question):
+        return results
+    # The model's query is often just keywords and can miss what the user's own wording finds.
+    if _question and _question != query:
+        retry = _search_notes(project_id, _question, k=k)
+        if can_answer(query, retry, _question):
+            return retry
+    return []
 
 
 def generate_quiz(project_id: str, topic: str, difficulty: str = "medium") -> dict:
@@ -132,10 +141,10 @@ TOOL_SCHEMAS = [
 ]
 
 
-def build_tool_functions(project_id: str) -> dict:
+def build_tool_functions(project_id: str, question: str | None = None) -> dict:
     """Bind each tool to a specific project so the model never has to name one itself."""
     return {
-        "search_notes": functools.partial(search_notes, project_id),
+        "search_notes": functools.partial(search_notes, project_id, _question=question),
         "generate_quiz": functools.partial(generate_quiz, project_id),
         "record_answer": functools.partial(record_answer, project_id),
         "get_weak_topics": functools.partial(get_weak_topics, project_id),
