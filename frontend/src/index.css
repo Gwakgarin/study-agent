@@ -554,12 +554,12 @@ mark.marker {
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.3em;
   text-decoration: none;
-  font-family: "Unbounded", sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--accent);
+  font-family: "Instrument Sans", sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  color: var(--text-primary);
   line-height: 1;
 }
 

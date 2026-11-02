@@ -3,24 +3,15 @@ function LogoMark({ size }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 28 28"
-      fill="none"
+      viewBox="20 20 60 60"
+      fill="var(--accent)"
       className="logo-mark"
       aria-hidden="true"
     >
-      <rect width="28" height="28" rx="8" fill="var(--accent)" />
-      <g
-        transform="translate(4,4) scale(0.83)"
-        stroke="var(--accent-ink)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      >
-        <polyline points="23 4 23 10 17 10" />
-        <polyline points="1 20 1 14 7 14" />
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-      </g>
+      <rect x="23" y="27" width="18" height="46" rx="9" />
+      <rect x="47" y="27" width="8" height="46" rx="4" />
+      <circle cx="70" cy="40" r="8.5" />
+      <circle cx="70" cy="60" r="8.5" />
     </svg>
   );
 }
@@ -28,8 +19,8 @@ function LogoMark({ size }) {
 export default function Logo({ size = 28 }) {
   return (
     <span className="logo" style={{ fontSize: size }}>
-      <LogoMark size={Math.round(size * 1.1)} />
-      Recap
+      <LogoMark size={Math.round(size * 0.92)} />
+      recap
     </span>
   );
 }
