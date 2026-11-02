@@ -83,3 +83,23 @@ def test_gate_fails_when_gated_chunk_size_is_missing():
     report = {"retrieval": [{"chunk_size": 300, "hit@5": 1.0}], "answers": _report()["answers"]}
 
     assert gate_failures(report, GATES) == ["no retrieval result for chunk_size 800"]
+
+
+def test_select_questions_keeps_file_order_and_rejects_unknown_ids():
+    from eval.run_eval import select_questions
+
+    questions = [{"id": "q01"}, {"id": "q02"}, {"id": "u01"}]
+
+    assert select_questions(questions, None) == questions
+    assert select_questions(questions, ["u01", "q01"]) == [{"id": "q01"}, {"id": "u01"}]
+    with pytest.raises(SystemExit):
+        select_questions(questions, ["q99"])
+
+
+def test_share_is_nan_for_an_empty_group():
+    import math
+
+    from eval.run_eval import _share
+
+    assert _share(1, [1, 2]) == 0.5
+    assert math.isnan(_share(0, []))
