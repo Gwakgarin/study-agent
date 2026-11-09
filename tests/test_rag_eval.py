@@ -116,6 +116,29 @@ def test_every_evidence_span_sits_inside_one_chunk(name):
     assert unreachable == []
 
 
+def test_word_overlap_counts_shared_tokens():
+    from src.rag_eval import word_overlap
+
+    assert word_overlap("NTILE 함수", "NTILE은 행을 나눈다") == 0.5
+    assert word_overlap("", "아무거나") == 0.0
+
+
+def test_hard_reworded_holdout_questions_stay_reworded():
+    # hr questions exist to test search on wording the notes never use; if an edit lets
+    # note wording creep back in, they stop measuring that.
+    from eval.run_eval import SETS, load_chunks, load_questions
+    from src.rag_eval import word_overlap
+
+    corpus_dir, questions_path = SETS["holdout"]
+    chunks = load_chunks(800, 100, corpus_dir)
+    hard = [q for q in load_questions(questions_path) if q["id"].startswith("hr")]
+
+    assert len(hard) == 16
+    for q in hard:
+        chunk = next(c["text"] for c in chunks if contains_evidence(c["text"], q["evidence"]))
+        assert word_overlap(q["question"], chunk) < 0.35, q["id"]
+
+
 def test_share_is_nan_for_an_empty_group():
     import math
 

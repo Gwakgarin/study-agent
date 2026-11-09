@@ -12,6 +12,19 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def word_overlap(question: str, chunk: str) -> float:
+    """Share of the question's search tokens that also appear in the chunk.
+
+    The first holdout "reworded" questions still shared 48% of their tokens with the
+    evidence (SQLD's reworded set: 30%), so keyword search found every one of them at
+    rank 1. This puts a number on how reworded a question really is.
+    """
+    from src.hybrid import tokenize
+
+    words = set(tokenize(question))
+    return len(words & set(tokenize(chunk))) / len(words) if words else 0.0
+
+
 def contains_evidence(chunk: str, evidence: list[str]) -> bool:
     normalized = _normalize(chunk)
     return any(_normalize(span) in normalized for span in evidence)
