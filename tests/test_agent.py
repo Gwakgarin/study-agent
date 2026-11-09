@@ -96,7 +96,9 @@ def test_run_turn_passes_tool_exception_back_to_model(monkeypatch):
     def broken_search(query):
         raise FileNotFoundError("index missing")
 
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": broken_search})
+    monkeypatch.setattr(
+        agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": broken_search}
+    )
 
     result = agent.run_turn(agent.new_conversation(), "p1")
 
@@ -113,7 +115,9 @@ def test_run_turn_reports_invalid_tool_arguments(monkeypatch):
         ]
     )
     monkeypatch.setattr(agent, "get_client", lambda: fake_client)
-    monkeypatch.setattr(agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": lambda query: []})
+    monkeypatch.setattr(
+        agent, "build_tool_functions", lambda project_id, question=None: {"search_notes": lambda query: []}
+    )
 
     result = agent.run_turn(agent.new_conversation(), "p1")
 

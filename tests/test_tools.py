@@ -32,7 +32,9 @@ def test_search_notes_retries_with_the_users_question_when_the_query_misses(monk
         return [{"text": query}]
 
     monkeypatch.setattr(tools, "_search_notes", fake_search)
-    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: query == "NULL이 뭐야?" and question is None)
+    monkeypatch.setattr(
+        tools, "can_answer", lambda query, chunks, question=None: query == "NULL이 뭐야?" and question is None
+    )
 
     assert tools.search_notes("p1", "빈 문자열", _question="NULL이 뭐야?") == [{"text": "NULL이 뭐야?"}]
     assert searched == ["빈 문자열", "NULL이 뭐야?"]

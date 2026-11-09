@@ -18,7 +18,7 @@ JSON으로만 답하세요: {{"answerable": true}} 또는 {{"answerable": false}
 {ask}
 
 조각:
-{context}"""
+{context}"""  # noqa: E501 (prompt text)
 
 
 def can_answer(query: str, chunks: list[dict], question: str | None = None) -> bool:

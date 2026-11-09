@@ -24,9 +24,9 @@ import faiss
 import numpy as np
 
 from src import search
-from src.hybrid import BM25, WEIGHTS, rrf
 from src.agent import new_conversation, run_turn_stream
 from src.config import settings
+from src.hybrid import BM25, WEIGHTS, rrf
 from src.ingest import EMBEDDING_MODEL, chunk_document, embedding_text, get_client
 from src.rag_eval import first_hit_rank, gate_failures, hit_rate_at_k, mean_reciprocal_rank
 
@@ -59,7 +59,7 @@ JUDGE_PROMPT = """학습 노트 기반 Q&A 에이전트의 답변을 채점합�
 - correct: 정답이 있는 질문이면 답변이 정답과 같은 내용을 말하는지. 정답이 null이면 거절 여부와 상관없이 항상 false (거절은 refused로만 본다).
 - grounded: 답변의 사실 주장이 모두 검색한 노트 내용으로 뒷받침되는지. 모른다고만 답했으면 true.
 - refused: 노트에 없어서 답할 수 없다고 말했는지.
-{{"correct": true, "grounded": true, "refused": false, "reason": "한 문장"}}"""
+{{"correct": true, "grounded": true, "refused": false, "reason": "한 문장"}}"""  # noqa: E501 (prompt text)
 
 
 def load_questions() -> list[dict]:
@@ -193,7 +193,12 @@ def judge(question: dict, context: str, answer: str, model: str) -> dict:
 
 
 def evaluate_answers(
-    chunk_size: int, overlap: int, questions: list[dict], cache: EmbeddingCache, repeats: int = 1, judge_model: str | None = None
+    chunk_size: int,
+    overlap: int,
+    questions: list[dict],
+    cache: EmbeddingCache,
+    repeats: int = 1,
+    judge_model: str | None = None,
 ) -> dict:
     judge_model = judge_model or settings.judge_model
     chunks = load_chunks(chunk_size, overlap)
@@ -239,7 +244,8 @@ def evaluate_answers(
                 **grade,
             }
         )
-        flag = "" if all(bool(grade.get(k)) == bool(self_grade.get(k)) for k in ("correct", "refused")) else "  <-- judges differ"
+        judges_agree = all(bool(grade.get(k)) == bool(self_grade.get(k)) for k in ("correct", "refused"))
+        flag = "" if judges_agree else "  <-- judges differ"
         print(f"  {q['id']}: correct={grade.get('correct')} grounded={grade.get('grounded')} "
               f"refused={grade.get('refused')} ({latency:.1f}s){flag}")
 
@@ -279,7 +285,9 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=settings.chunk_size, help="chunk size for --answers")
     parser.add_argument("--repeats", type=int, default=1, help="run each question this many times (--answers)")
     parser.add_argument("--judge-model", default=None, help="model that grades answers (default: settings.judge_model)")
-    parser.add_argument("--ids", nargs="+", help="grade only these question ids (--answers); retrieval still covers all")
+    parser.add_argument(
+        "--ids", nargs="+", help="grade only these question ids (--answers); retrieval still covers all"
+    )
     parser.add_argument("--gate", action="store_true", help="exit with 1 if a metric misses eval/gates.json")
     args = parser.parse_args()
     if args.ids and args.gate:
@@ -306,7 +314,8 @@ def main() -> None:
 
     if args.answers:
         print(f"\nAnswers (chunk_size {args.chunk_size})")
-        a = evaluate_answers(args.chunk_size, args.overlap, select_questions(questions, args.ids), cache, args.repeats, args.judge_model)
+        picked = select_questions(questions, args.ids)
+        a = evaluate_answers(args.chunk_size, args.overlap, picked, cache, args.repeats, args.judge_model)
         report["answers"] = a
         print(f"judge {a['judge_model']} (agent {a['chat_model']}) | agreement with agent-model grading "
               f"{a['judge_agreement']:.1%} | accuracy if agent graded itself {a['accuracy_by_agent_model']:.1%}")
