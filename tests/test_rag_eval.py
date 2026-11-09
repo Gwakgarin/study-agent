@@ -96,7 +96,7 @@ def test_select_questions_keeps_file_order_and_rejects_unknown_ids():
         select_questions(questions, ["q99"])
 
 
-@pytest.mark.parametrize("name", ["sqld", "holdout"])
+@pytest.mark.parametrize("name", ["sqld", "holdout", "final"])
 def test_every_evidence_span_sits_inside_one_chunk(name):
     # A label that is missing from the notes, or split across two chunks, can never be
     # retrieved and would quietly count as a search miss.
@@ -123,15 +123,16 @@ def test_word_overlap_counts_shared_tokens():
     assert word_overlap("", "아무거나") == 0.0
 
 
-def test_hard_reworded_holdout_questions_stay_reworded():
-    # hr questions exist to test search on wording the notes never use; if an edit lets
+@pytest.mark.parametrize("name,prefix", [("holdout", "hr"), ("final", "hf")])
+def test_hard_reworded_holdout_questions_stay_reworded(name, prefix):
+    # hr/hf questions exist to test search on wording the notes never use; if an edit lets
     # note wording creep back in, they stop measuring that.
     from eval.run_eval import SETS, load_chunks, load_questions
     from src.rag_eval import word_overlap
 
-    corpus_dir, questions_path = SETS["holdout"]
+    corpus_dir, questions_path = SETS[name]
     chunks = load_chunks(800, 100, corpus_dir)
-    hard = [q for q in load_questions(questions_path) if q["id"].startswith("hr")]
+    hard = [q for q in load_questions(questions_path) if q["id"].startswith(prefix)]
 
     assert len(hard) == 16
     for q in hard:

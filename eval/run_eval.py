@@ -34,10 +34,12 @@ EVAL_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = EVAL_DIR / "corpus"
 QUESTIONS_PATH = EVAL_DIR / "questions.jsonl"
 # "holdout" is a second subject the search weights, chunk size and prompts were never tuned on.
-# It checks whether the SQLD numbers carry over, so nothing should be changed by looking at it.
+# Its hr questions turned out to expose the SQLD tuning, so they became the dev set for fixing it.
+# "final" was written and committed before that fix and is run once, after it.
 SETS = {
     "sqld": (CORPUS_DIR, QUESTIONS_PATH),
     "holdout": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "questions.jsonl"),
+    "final": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "final.jsonl"),
 }
 CACHE_PATH = EVAL_DIR / ".cache" / "embeddings.json"
 RESULTS_DIR = EVAL_DIR / "results"
