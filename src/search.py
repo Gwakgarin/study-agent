@@ -5,7 +5,7 @@ import json
 import faiss
 import numpy as np
 
-from src.hybrid import BM25, WEIGHTS, rrf
+from src.hybrid import BM25, fuse
 from src.ingest import EMBEDDING_MODEL, embedding_text, get_client
 from src.projects import index_dir
 
@@ -54,7 +54,7 @@ def search_notes(project_id: str, query: str, k: int = 5) -> list[dict]:
 
     _, dense = index.search(vector, min(max(POOL, k), len(metadata)))
     dense_ranking = [int(i) for i in dense[0] if i != -1]
-    fused = rrf([dense_ranking, _bm25(project_id, metadata).rank(query, POOL)], WEIGHTS)[:k]
+    fused = fuse(dense_ranking, _bm25(project_id, metadata).rank(query, POOL), k)[:k]
 
     results = []
     for idx in fused:

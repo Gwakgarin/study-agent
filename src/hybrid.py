@@ -13,6 +13,7 @@ B = 0.75
 RRF_K = 60
 # On paraphrased questions (little word overlap with the notes) weights of 1:2 beat 1:1 and 1:3;
 # keyword matching is the steadier half on a small note set, embeddings still catch synonyms.
+# Rechecked on a second subject (eval/holdout): 1:1 and 2:1 were worse on every set there too.
 WEIGHTS = (1.0, 2.0)  # (embedding, keyword)
 
 _WORD = re.compile(r"[0-9A-Za-z_]+|[가-힣]+")
@@ -52,6 +53,21 @@ class BM25:
         scores = self.scores(query)
         order = sorted(range(len(scores)), key=lambda i: -scores[i])
         return [i for i in order[:k] if scores[i] > 0]
+
+
+def fuse(dense: list[int], keyword: list[int], k: int) -> list[int]:
+    """The app's ranking: weighted RRF, but the embedding search's best match always makes the top k.
+
+    With keyword weight 2, a chunk only the embedding search finds scores 1/61, below every
+    keyword match in the pool (2/80 at rank 20). On questions that share almost no words with
+    the notes, that pushed embedding hits that were ranked first out of the top 5.
+    """
+    fused = rrf([dense, keyword], WEIGHTS)
+    top = fused[:k]
+    # The fused first place is never given up; only the last slot of a longer list is.
+    if dense and k > 1 and dense[0] not in top:
+        top = top[: k - 1] + [dense[0]]
+    return top + [i for i in fused if i not in top]
 
 
 def rrf(rankings: list[list[int]], weights: tuple[float, ...] | None = None, k: int = RRF_K) -> list[int]:

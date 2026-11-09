@@ -8,7 +8,7 @@
 
 내 노트를 검색해서 답하고, 틀린 주제를 먼저 다시 내고, SM-2로 복습 날짜를 잡습니다
 
-[recap-study-agent.fly.dev](https://recap-study-agent.fly.dev) · 가입 없이 바로 써볼 수 있습니다
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-recap--study--agent.fly.dev-FFC700?style=flat&logo=flydotio&logoColor=white&labelColor=14151A)](https://recap-study-agent.fly.dev)
 
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=flat&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)

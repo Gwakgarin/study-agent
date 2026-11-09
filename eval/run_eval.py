@@ -26,7 +26,7 @@ import numpy as np
 from src import search
 from src.agent import new_conversation, run_turn_stream
 from src.config import settings
-from src.hybrid import BM25, WEIGHTS, rrf
+from src.hybrid import BM25, fuse
 from src.ingest import EMBEDDING_MODEL, chunk_document, embedding_text, get_client
 from src.rag_eval import first_hit_rank, gate_failures, hit_rate_at_k, mean_reciprocal_rank
 
@@ -145,7 +145,7 @@ def evaluate_retrieval(
     rankers = {
         "dense": lambda q, row: [int(i) for i in row if i != -1],
         "bm25": lambda q, row: bm25.rank(q, pool),
-        "hybrid": lambda q, row: rrf([[int(i) for i in row if i != -1], bm25.rank(q, pool)], WEIGHTS),
+        "hybrid": lambda q, row: fuse([int(i) for i in row if i != -1], bm25.rank(q, pool), 5),
     }
     modes = {}
     for name, rank_fn in rankers.items():
