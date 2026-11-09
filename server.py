@@ -2,9 +2,11 @@
 
 import base64
 import json
+import re
 import secrets
 import shutil
 import uuid
+import zipfile
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
@@ -20,13 +22,13 @@ from openai import (
 )
 from pydantic import BaseModel
 
-from src import auth, display, ingest, projects, quizzes, search, usage
+from src import auth, display, ingest, projects, quizzes, search, usage, webnote
 from src.agent import ToolLoopError, new_conversation, run_turn, run_turn_stream
 from src.config import settings
 from src.sessions import get_project_id, load_session, save_session
 from src.tracker import get_due_topics, get_weak_topics, project_stats, record_answer
 
-ALLOWED_NOTE_EXTENSIONS = {".pdf", ".md", ".txt"}
+ALLOWED_NOTE_EXTENSIONS = set(ingest.SUPPORTED_SUFFIXES)
 
 app = FastAPI(title="Study Agent API")
 
@@ -83,6 +85,11 @@ def current_user(request: Request) -> dict:
     return user
 
 
+def require_saved_account(user: dict) -> None:
+    if user.get("is_guest"):
+        raise HTTPException(status_code=403, detail="내 노트를 올리려면 먼저 기록을 저장해주세요.")
+
+
 def owned_project(project_id: str, user: dict) -> dict:
     # Someone else's project answers exactly like a missing one, so ids can't be probed.
     project = projects.get_project(project_id)
@@ -130,6 +137,32 @@ def signup(req: SignupRequest, response: Response):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _set_login_cookie(response, user["id"])
     return user
+
+
+@app.post("/api/auth/guest")
+def start_guest(request: Request, response: Response):
+    user = auth.user_for_token(request.cookies.get(SESSION_COOKIE))
+    if user is not None:
+        return user
+    if not settings.guest_enabled:
+        raise HTTPException(status_code=403, detail="로그인이 필요해요.")
+    user = auth.create_guest()
+    _set_login_cookie(response, user["id"])
+    return user
+
+
+@app.post("/api/auth/upgrade")
+def save_guest(req: SignupRequest, user: dict = Depends(current_user)):
+    if not user.get("is_guest"):
+        raise HTTPException(status_code=400, detail="이미 저장된 계정이에요.")
+    if settings.signup_code and not secrets.compare_digest(
+        (req.signup_code or "").encode(), settings.signup_code.encode()
+    ):
+        raise HTTPException(status_code=403, detail="가입 코드가 맞지 않아요.")
+    try:
+        return auth.upgrade_guest(user["id"], req.username, req.password)
+    except auth.SignupError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/auth/login")
@@ -278,10 +311,10 @@ def _chat_failure(exc: Exception) -> HTTPException:
 def _start_chat(req: ChatRequest, user: dict) -> list[dict]:
     owned_project(req.project_id, user)
     _check_session(req.session_id, req.project_id)
-    if usage.chats_in_last_hour(user["id"]) >= settings.chat_limit_per_hour:
-        raise HTTPException(
-            429, f"한 시간에 {settings.chat_limit_per_hour}번까지 질문할 수 있어요. 잠시 후 다시 보내주세요."
-        )
+    limit = settings.guest_chat_limit_per_hour if user.get("is_guest") else settings.chat_limit_per_hour
+    if usage.chats_in_last_hour(user["id"]) >= limit:
+        hint = " 기록을 저장하면 더 많이 쓸 수 있어요." if user.get("is_guest") else " 잠시 후 다시 보내주세요."
+        raise HTTPException(429, f"한 시간에 {limit}번까지 질문할 수 있어요.{hint}")
     messages = load_session(req.session_id) or new_conversation()
     messages.append({"role": "user", "content": req.message})
     usage.record_chat(user["id"])
@@ -399,12 +432,39 @@ def list_notes(project_id: str, user: dict = Depends(current_user)):
     return _note_counts(project_id)
 
 
+def _store_notes(project_id: str, items: list[tuple[str, bytes]]) -> list[dict]:
+    """Save notes into the subject, rebuild its index, and return the updated note list."""
+    notes_dir = projects.notes_dir(project_id)
+    existing = {p.name for p in notes_dir.iterdir()} if notes_dir.is_dir() else set()
+    if len(existing | {name for name, _ in items}) > settings.max_notes_per_project:
+        raise HTTPException(
+            status_code=400, detail=f"과목당 노트는 {settings.max_notes_per_project}개까지 올릴 수 있어요."
+        )
+
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    for name, data in items:
+        (notes_dir / name).write_bytes(data)
+
+    try:
+        ingest.build_index(project_id)
+    except SystemExit as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (ValueError, zipfile.BadZipFile) as exc:
+        raise HTTPException(
+            status_code=400, detail="노트 파일을 읽지 못했어요. 파일이 손상되지 않았는지 확인해주세요."
+        ) from exc
+
+    search.invalidate(project_id)
+    return _note_counts(project_id)
+
+
 @app.post("/api/notes")
 async def upload_notes(
     project_id: str = Form(...),
     files: list[UploadFile] = File(...),
     user: dict = Depends(current_user),
 ):
+    require_saved_account(user)
     owned_project(project_id, user)
     if not files:
         raise HTTPException(status_code=400, detail="업로드할 파일이 없습니다.")
@@ -415,15 +475,8 @@ async def upload_notes(
         if Path(name).suffix.lower() not in ALLOWED_NOTE_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"지원하지 않는 파일 형식입니다: {name} (pdf, md, txt만 가능)",
+                detail=f"지원하지 않는 파일 형식입니다: {name} (pdf, docx, md, txt만 가능)",
             )
-
-    notes_dir = projects.notes_dir(project_id)
-    existing = {p.name for p in notes_dir.iterdir()} if notes_dir.is_dir() else set()
-    if len(existing | set(names)) > settings.max_notes_per_project:
-        raise HTTPException(
-            status_code=400, detail=f"과목당 노트는 {settings.max_notes_per_project}개까지 올릴 수 있어요."
-        )
 
     max_bytes = settings.max_upload_mb * 1024 * 1024
     contents = []
@@ -435,18 +488,53 @@ async def upload_notes(
             )
         contents.append((name, data))
 
-    notes_dir.mkdir(parents=True, exist_ok=True)
-    for name, data in contents:
-        (notes_dir / name).write_bytes(data)
+    return _store_notes(project_id, contents)
 
+
+def _note_filename(title: str) -> str:
+    """A safe .md file name from free text: no path separators, no leftover dots, bounded length."""
+    cleaned = re.sub(r"[^\w가-힣 .-]", "", title, flags=re.UNICODE).strip(" .-_")
+    cleaned = re.sub(r"\s+", "_", cleaned)[:60].strip("._-")
+    return f"{cleaned or '노트'}.md"
+
+
+class TextNoteRequest(BaseModel):
+    project_id: str
+    title: str
+    content: str
+
+
+@app.post("/api/notes/text")
+def add_text_note(req: TextNoteRequest, user: dict = Depends(current_user)):
+    """A note typed or pasted into the page, stored as markdown like an uploaded file."""
+    require_saved_account(user)
+    owned_project(req.project_id, user)
+    title, content = req.title.strip(), req.content.strip()
+    if not title or not content:
+        raise HTTPException(status_code=400, detail="제목과 내용을 모두 입력해주세요.")
+    if len(content.encode()) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"내용이 {settings.max_upload_mb}MB를 넘어요.")
+
+    # Without a heading the note would have no title for search to anchor on.
+    text = content if content.startswith("#") else f"# {title}\n\n{content}"
+    return _store_notes(req.project_id, [(_note_filename(title), text.encode())])
+
+
+class UrlNoteRequest(BaseModel):
+    project_id: str
+    url: str
+
+
+@app.post("/api/notes/url")
+def add_url_note(req: UrlNoteRequest, user: dict = Depends(current_user)):
+    """Import a public web page as a note."""
+    require_saved_account(user)
+    owned_project(req.project_id, user)
     try:
-        ingest.build_index(project_id)
-    except SystemExit as exc:
+        title, text = webnote.import_url(req.url)
+    except webnote.WebNoteError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    search.invalidate(project_id)
-
-    return _note_counts(project_id)
+    return _store_notes(req.project_id, [(_note_filename(title), text.encode())])
 
 
 # In the Docker image the built React app sits next to the API, so one server

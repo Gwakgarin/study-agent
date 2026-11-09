@@ -43,6 +43,9 @@ class Settings(BaseSettings):
 
     # Per-user limits that keep one account from using up the OpenAI budget or disk.
     chat_limit_per_hour: int = 30
+    # Guests try the app without signing up: a lower chat limit and no note uploads.
+    guest_enabled: bool = True
+    guest_chat_limit_per_hour: int = 10
     max_upload_mb: int = 5
     max_notes_per_project: int = 20
 

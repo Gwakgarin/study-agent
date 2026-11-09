@@ -18,6 +18,7 @@ DB_PATH = settings.db_path
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,20}$")
 MIN_PASSWORD_LENGTH = 8
 SESSION_DAYS = 30
+GUEST_PREFIX = "guest_"
 
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
 
@@ -39,6 +40,9 @@ def get_connection() -> sqlite3.Connection:
         )
         """
     )
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if "is_guest" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS logins (
@@ -68,11 +72,17 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(digest.hex(), digest_hex)
 
 
-def create_user(username: str, password: str) -> dict:
+def _check_signup(username: str, password: str) -> None:
     if not USERNAME_PATTERN.match(username):
         raise SignupError("아이디는 영문, 숫자, 밑줄(_)로 3~20자여야 해요.")
+    if username.lower().startswith(GUEST_PREFIX):
+        raise SignupError(f"{GUEST_PREFIX}로 시작하는 아이디는 쓸 수 없어요.")
     if len(password) < MIN_PASSWORD_LENGTH:
         raise SignupError(f"비밀번호는 {MIN_PASSWORD_LENGTH}자 이상이어야 해요.")
+
+
+def create_user(username: str, password: str) -> dict:
+    _check_signup(username, password)
 
     user_id = str(uuid.uuid4())
     conn = get_connection()
@@ -86,7 +96,41 @@ def create_user(username: str, password: str) -> dict:
         raise SignupError("이미 사용 중인 아이디예요.") from exc
     finally:
         conn.close()
-    return {"id": user_id, "username": username}
+    return {"id": user_id, "username": username, "is_guest": False}
+
+
+def create_guest() -> dict:
+    """An account with no password, so someone can try the app before signing up."""
+    user_id = str(uuid.uuid4())
+    username = GUEST_PREFIX + secrets.token_hex(4)
+    conn = get_connection()
+    with conn:
+        # "!" never matches a scrypt hash, so nobody can log in to a guest with a password.
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, is_guest) VALUES (?, ?, '!', 1)",
+            (user_id, username),
+        )
+    conn.close()
+    return {"id": user_id, "username": username, "is_guest": True}
+
+
+def upgrade_guest(user_id: str, username: str, password: str) -> dict:
+    """Give a guest a username and password; their subjects and review history stay as they are."""
+    _check_signup(username, password)
+    conn = get_connection()
+    try:
+        with conn:
+            cur = conn.execute(
+                "UPDATE users SET username = ?, password_hash = ?, is_guest = 0 WHERE id = ? AND is_guest = 1",
+                (username, hash_password(password), user_id),
+            )
+    except sqlite3.IntegrityError as exc:
+        raise SignupError("이미 사용 중인 아이디예요.") from exc
+    finally:
+        conn.close()
+    if cur.rowcount == 0:
+        raise SignupError("이미 저장된 계정이에요.")
+    return {"id": user_id, "username": username, "is_guest": False}
 
 
 def authenticate(username: str, password: str) -> dict | None:
@@ -101,7 +145,7 @@ def authenticate(username: str, password: str) -> dict | None:
         return None
     if not verify_password(password, row[2]):
         return None
-    return {"id": row[0], "username": row[1]}
+    return {"id": row[0], "username": row[1], "is_guest": False}
 
 
 def _token_hash(token: str) -> str:
@@ -126,14 +170,14 @@ def user_for_token(token: str | None) -> dict | None:
     conn = get_connection()
     row = conn.execute(
         """
-        SELECT users.id, users.username
+        SELECT users.id, users.username, users.is_guest
         FROM logins JOIN users ON users.id = logins.user_id
         WHERE logins.token_hash = ? AND logins.expires_at > datetime('now')
         """,
         (_token_hash(token),),
     ).fetchone()
     conn.close()
-    return {"id": row[0], "username": row[1]} if row else None
+    return {"id": row[0], "username": row[1], "is_guest": bool(row[2])} if row else None
 
 
 def delete_login(token: str | None) -> None:

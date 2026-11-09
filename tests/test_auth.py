@@ -239,3 +239,88 @@ def test_review_lists_due_topics_for_owner_only(monkeypatch):
     assert bob.get("/api/review", params={"project_id": project_id}).status_code == 404
     card = alice.get("/api/projects").json()[0]
     assert card["attempts"] == 1 and card["accuracy"] == 0 and card["due"] == 1
+
+
+def test_guest_gets_an_account_without_signing_up():
+    client = TestClient(server.app)
+
+    guest = client.post("/api/auth/guest").json()
+    me = client.get("/api/auth/me").json()
+
+    assert guest["is_guest"] is True
+    assert me["id"] == guest["id"]
+    assert client.post("/api/projects", json={"name": "SQLD"}).status_code == 200
+
+
+def test_guest_endpoint_reuses_existing_login():
+    client = TestClient(server.app)
+    first = client.post("/api/auth/guest").json()
+
+    assert client.post("/api/auth/guest").json()["id"] == first["id"]
+
+
+def test_guest_cannot_upload_notes():
+    client = TestClient(server.app)
+    client.post("/api/auth/guest")
+    project = client.post("/api/projects", json={"name": "SQLD"}).json()
+
+    res = client.post(
+        "/api/notes",
+        data={"project_id": project["id"]},
+        files={"files": ("a.md", b"# A\n\nbody", "text/markdown")},
+    )
+
+    assert res.status_code == 403
+
+
+def test_saving_a_guest_keeps_their_subjects():
+    client = TestClient(server.app)
+    guest = client.post("/api/auth/guest").json()
+    project = client.post("/api/projects", json={"name": "SQLD"}).json()
+
+    saved = client.post("/api/auth/upgrade", json={"username": "alice", "password": "password1"})
+
+    assert saved.status_code == 200
+    assert saved.json() == {"id": guest["id"], "username": "alice", "is_guest": False}
+    assert [p["id"] for p in client.get("/api/projects").json()] == [project["id"]]
+
+    other = TestClient(server.app)
+    assert other.post("/api/auth/login", json={"username": "alice", "password": "password1"}).status_code == 200
+
+
+def test_guest_cannot_take_a_used_or_reserved_username():
+    _signup(TestClient(server.app))
+    client = TestClient(server.app)
+    client.post("/api/auth/guest")
+
+    taken = client.post("/api/auth/upgrade", json={"username": "alice", "password": "password1"})
+    reserved = client.post("/api/auth/upgrade", json={"username": "guest_abc", "password": "password1"})
+
+    assert taken.status_code == 400
+    assert reserved.status_code == 400
+
+
+def test_nobody_can_log_in_to_a_guest_with_a_password():
+    client = TestClient(server.app)
+    guest = client.post("/api/auth/guest").json()
+
+    res = TestClient(server.app).post("/api/auth/login", json={"username": guest["username"], "password": "!"})
+
+    assert res.status_code == 401
+
+
+def test_guest_has_a_lower_chat_limit(monkeypatch):
+    client = TestClient(server.app)
+    guest = client.post("/api/auth/guest").json()
+    project = client.post("/api/projects", json={"name": "SQLD"}).json()
+    session = client.post("/api/session", json={"project_id": project["id"]}).json()
+    monkeypatch.setattr(server.settings, "guest_chat_limit_per_hour", 1)
+    usage.record_chat(guest["id"])
+
+    res = client.post(
+        "/api/chat",
+        json={"session_id": session["session_id"], "project_id": project["id"], "message": "hi"},
+    )
+
+    assert res.status_code == 429
+    assert "기록을 저장" in res.json()["detail"]
