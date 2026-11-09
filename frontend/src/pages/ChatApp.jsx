@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
+import { useSaveProgress, useUser } from "../components/RequireAuth.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import ChatWindow from "../components/ChatWindow.jsx";
 import {
@@ -16,6 +17,10 @@ import {
 } from "../api.js";
 
 export default function ChatApp() {
+  const user = useUser();
+  const openSave = useSaveProgress();
+  // Guests can try the sample but need a saved account before uploading their own notes.
+  const uploadLocked = user.is_guest ? openSave : null;
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [projectName, setProjectName] = useState("");
@@ -151,6 +156,7 @@ export default function ChatApp() {
         notes={notes ?? []}
         onReset={handleReset}
         onUpload={handleUpload}
+        uploadLocked={uploadLocked}
         onPractice={(topic) => handleSend(`${topic} 퀴즈 내줘`)}
         uploading={uploading}
         uploadError={uploadError}
@@ -188,6 +194,7 @@ export default function ChatApp() {
             onAnswerQuiz={handleAnswerQuiz}
             hasNotes={notes.length > 0}
             onUpload={handleUpload}
+            uploadLocked={uploadLocked}
             uploading={uploading}
           />
         )}

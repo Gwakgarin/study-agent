@@ -3,7 +3,7 @@ import ChatMessage from "./ChatMessage.jsx";
 
 const SUGGESTED_PROMPTS = ["이 노트 핵심만 요약해줘", "퀴즈 하나 내줘", "내가 자주 틀리는 개념이 뭐야?"];
 
-function Onboarding({ onUpload, uploading }) {
+function Onboarding({ onUpload, uploadLocked, uploading }) {
   function handleFiles(e) {
     if (e.target.files?.length) onUpload(e.target.files);
     e.target.value = "";
@@ -14,7 +14,7 @@ function Onboarding({ onUpload, uploading }) {
       <ol className="onboarding-steps">
         <li>
           <strong>노트 올리기</strong>
-          <span>PDF, 마크다운, 텍스트 파일을 올리면 검색할 수 있게 정리해요.</span>
+          <span>PDF, Word, 마크다운, 텍스트 파일을 올리면 검색할 수 있게 정리해요.</span>
         </li>
         <li>
           <strong>물어보기</strong>
@@ -25,10 +25,16 @@ function Onboarding({ onUpload, uploading }) {
           <span>틀린 주제는 약점으로 쌓이고, 복습할 날짜에 다시 알려줘요.</span>
         </li>
       </ol>
-      <label className={`btn-primary upload-cta ${uploading ? "is-busy" : ""}`}>
-        {uploading ? "노트를 정리하는 중..." : "노트 올리기"}
-        <input type="file" accept=".pdf,.md,.txt" multiple hidden onChange={handleFiles} disabled={uploading} />
-      </label>
+      {uploadLocked ? (
+        <button type="button" className="btn-primary upload-cta" onClick={uploadLocked}>
+          기록 저장하고 노트 올리기
+        </button>
+      ) : (
+        <label className={`btn-primary upload-cta ${uploading ? "is-busy" : ""}`}>
+          {uploading ? "노트를 정리하는 중..." : "노트 올리기"}
+          <input type="file" accept=".pdf,.docx,.md,.txt" multiple hidden onChange={handleFiles} disabled={uploading} />
+        </label>
+      )}
     </div>
   );
 }
@@ -49,7 +55,7 @@ function Suggestions({ onPick }) {
   );
 }
 
-export default function ChatWindow({ messages, busy, onSend, onAnswerQuiz, hasNotes, onUpload, uploading }) {
+export default function ChatWindow({ messages, busy, onSend, onAnswerQuiz, hasNotes, onUpload, uploadLocked, uploading }) {
   const [input, setInput] = useState("");
   const bottomRef = useRef(null);
 
@@ -71,7 +77,7 @@ export default function ChatWindow({ messages, busy, onSend, onAnswerQuiz, hasNo
     <div className="chat-window">
       <div className="chat-scroll" aria-live="polite">
         {messages.length === 0 &&
-          (hasNotes ? <Suggestions onPick={onSend} /> : <Onboarding onUpload={onUpload} uploading={uploading} />)}
+          (hasNotes ? <Suggestions onPick={onSend} /> : <Onboarding onUpload={onUpload} uploadLocked={uploadLocked} uploading={uploading} />)}
         {messages.map((m, i) => (
           <ChatMessage key={i} message={m} onAnswerQuiz={onAnswerQuiz} />
         ))}

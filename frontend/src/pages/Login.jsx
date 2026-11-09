@@ -161,6 +161,7 @@ export default function Login() {
             {submitting ? "잠시만요..." : isSignup ? "가입하고 시작하기" : "로그인"}
           </button>
         </form>
+        <Link to="/app" className="auth-guest-link">가입 없이 둘러보기</Link>
       </div>
     </div>
   );

@@ -99,10 +99,12 @@ export default function Projects() {
           <Logo size={28} />
         </Link>
         <div className="nav-user">
-          <span>{user.username}</span>
-          <button type="button" onClick={handleLogout}>
-            로그아웃
-          </button>
+          <span>{user.is_guest ? "게스트" : user.username}</span>
+          {!user.is_guest && (
+            <button type="button" onClick={handleLogout}>
+              로그아웃
+            </button>
+          )}
         </div>
       </nav>
 

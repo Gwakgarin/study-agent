@@ -40,6 +40,17 @@ export function signup(username, password, signupCode) {
   });
 }
 
+export function startGuest() {
+  return request("/auth/guest", { method: "POST" });
+}
+
+export function saveGuest(username, password, signupCode) {
+  return request("/auth/upgrade", {
+    method: "POST",
+    body: JSON.stringify({ username, password, signup_code: signupCode || null }),
+  });
+}
+
 export function logout() {
   return request("/auth/logout", { method: "POST" });
 }

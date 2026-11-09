@@ -46,6 +46,7 @@ export default function Sidebar({
   notes,
   onReset,
   onUpload,
+  uploadLocked,
   onPractice,
   uploading,
   uploadError,
@@ -104,11 +105,19 @@ export default function Sidebar({
         <hr className="divider" />
 
         <div className="sidebar-title">노트 {notes.length > 0 && <span className="count">{notes.length}</span>}</div>
-        <label className={`upload-button ${uploading ? "is-busy" : ""}`}>
-          {uploading ? "노트를 정리하는 중..." : "+ 노트 올리기"}
-          <input type="file" accept=".pdf,.md,.txt" multiple onChange={handleFileChange} disabled={uploading} hidden />
-        </label>
-        <div className="upload-hint">PDF · MD · TXT, 파일당 5MB까지</div>
+        {uploadLocked ? (
+          <button type="button" className="upload-button" onClick={uploadLocked}>
+            + 노트 올리기
+          </button>
+        ) : (
+          <label className={`upload-button ${uploading ? "is-busy" : ""}`}>
+            {uploading ? "노트를 정리하는 중..." : "+ 노트 올리기"}
+            <input type="file" accept=".pdf,.docx,.md,.txt" multiple onChange={handleFileChange} disabled={uploading} hidden />
+          </label>
+        )}
+        <div className="upload-hint">
+          {uploadLocked ? "기록을 저장하면 내 노트를 올릴 수 있어요" : "PDF · Word · MD · TXT, 파일당 5MB까지"}
+        </div>
         {uploadError && (
           <div className="upload-error" role="alert">
             {uploadError}
