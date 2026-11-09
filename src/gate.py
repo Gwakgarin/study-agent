@@ -11,7 +11,7 @@ from src.ingest import get_client
 
 PROMPT = """학습 노트에서 검색한 조각들이 질문에 답하는 데 쓸 수 있는지 판단하세요.
 
-- 답의 핵심 내용이 조각 안에 있으면 true. 표현이 달라도, 일부만 있어도 true.
+- 답의 핵심 내용이 조각 안에 있으면 true. 질문과 조각의 용어가 달라도(예: 별칭과 접두사) 같은 대상을 말하면 같은 내용으로 보고, 일부만 있어도 true.
 - 같은 분야의 단어만 겹치고 질문이 묻는 내용 자체는 없으면 false.
 JSON으로만 답하세요: {{"answerable": true}} 또는 {{"answerable": false}}
 

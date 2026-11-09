@@ -21,7 +21,7 @@ def search_notes(project_id: str, query: str, k: int = 5, _question: str | None 
     # The model's query is often just keywords and can miss what the user's own wording finds.
     if _question and _question != query:
         retry = _search_notes(project_id, _question, k=k)
-        if can_answer(query, retry, _question):
+        if can_answer(_question, retry):
             return retry
     return []
 
