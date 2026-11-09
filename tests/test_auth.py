@@ -259,6 +259,31 @@ def test_guest_endpoint_reuses_existing_login():
     assert client.post("/api/auth/guest").json()["id"] == first["id"]
 
 
+def test_guests_are_limited_per_address(monkeypatch):
+    monkeypatch.setattr(server.settings, "guest_limit_per_ip_per_day", 2)
+    here = {"fly-client-ip": "203.0.113.7"}
+
+    # Clearing cookies (a fresh client) used to mean an endless supply of guests.
+    for _ in range(2):
+        assert TestClient(server.app).post("/api/auth/guest", headers=here).status_code == 200
+    blocked = TestClient(server.app).post("/api/auth/guest", headers=here)
+
+    assert blocked.status_code == 429
+    assert "가입" in blocked.json()["detail"]
+    elsewhere = {"fly-client-ip": "198.51.100.2"}
+    assert TestClient(server.app).post("/api/auth/guest", headers=elsewhere).status_code == 200
+
+
+def test_returning_guest_is_not_counted_again(monkeypatch):
+    monkeypatch.setattr(server.settings, "guest_limit_per_ip_per_day", 1)
+    client = TestClient(server.app)
+    here = {"fly-client-ip": "203.0.113.7"}
+
+    client.post("/api/auth/guest", headers=here)
+
+    assert client.post("/api/auth/guest", headers=here).status_code == 200
+
+
 def test_guest_cannot_upload_notes():
     client = TestClient(server.app)
     client.post("/api/auth/guest")

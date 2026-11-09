@@ -16,7 +16,7 @@ export function useSaveProgress() {
 
 export default function RequireAuth({ children }) {
   const location = useLocation();
-  const [state, setState] = useState({ status: "loading", user: null });
+  const [state, setState] = useState({ status: "loading", user: null, notice: null });
   const [saveOpen, setSaveOpen] = useState(false);
 
   useEffect(() => {
@@ -24,12 +24,13 @@ export default function RequireAuth({ children }) {
     fetchMe()
       .catch(() => startGuest())
       .then((user) => setState({ status: "in", user }))
-      .catch(() => setState({ status: "out", user: null }));
+      // e.g. this address already started today's share of guests: explain on the login page.
+      .catch((err) => setState({ status: "out", user: null, notice: err.status === 429 ? err.message : null }));
   }, []);
 
   if (state.status === "loading") return null;
   if (state.status === "out") {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname, notice: state.notice }} />;
   }
 
   const value = { user: state.user, openSave: () => setSaveOpen(true) };

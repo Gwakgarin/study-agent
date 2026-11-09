@@ -6,7 +6,8 @@ import { fetchAuthConfig, login, signup } from "../api.js";
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState("login");
+  const notice = location.state?.notice;
+  const [mode, setMode] = useState(notice ? "signup" : "login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -152,7 +153,7 @@ export default function Login() {
               />
             </label>
           )}
-          {error && <div className="error-banner">{error}</div>}
+          {(error || notice) && <div className="error-banner">{error || notice}</div>}
           <button
             type="submit"
             className="btn-primary"
@@ -161,7 +162,9 @@ export default function Login() {
             {submitting ? "잠시만요..." : isSignup ? "가입하고 시작하기" : "로그인"}
           </button>
         </form>
-        <Link to="/app" className="auth-guest-link">가입 없이 둘러보기</Link>
+        {!notice && (
+          <Link to="/app" className="auth-guest-link">가입 없이 둘러보기</Link>
+        )}
       </div>
     </div>
   );

@@ -139,6 +139,11 @@ def signup(req: SignupRequest, response: Response):
     return user
 
 
+def _client_ip(request: Request) -> str:
+    # Fly.io's proxy sets this header itself, so a client can't fake it there.
+    return request.headers.get("fly-client-ip") or (request.client.host if request.client else "unknown")
+
+
 @app.post("/api/auth/guest")
 def start_guest(request: Request, response: Response):
     user = auth.user_for_token(request.cookies.get(SESSION_COOKIE))
@@ -146,6 +151,10 @@ def start_guest(request: Request, response: Response):
         return user
     if not settings.guest_enabled:
         raise HTTPException(status_code=403, detail="로그인이 필요해요.")
+    ip = _client_ip(request)
+    if usage.guests_today(ip) >= settings.guest_limit_per_ip_per_day:
+        raise HTTPException(status_code=429, detail="오늘 둘러보기 횟수를 다 썼어요. 가입하고 이어서 써주세요.")
+    usage.record_guest(ip)
     user = auth.create_guest()
     _set_login_cookie(response, user["id"])
     return user

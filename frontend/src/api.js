@@ -9,7 +9,9 @@ async function failure(res, path) {
   if (res.status === 401 && !path.startsWith("/auth/")) {
     return new AuthRequiredError(message);
   }
-  return new Error(message);
+  const error = new Error(message);
+  error.status = res.status;
+  return error;
 }
 
 async function request(path, options) {
