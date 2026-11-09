@@ -96,6 +96,26 @@ def test_select_questions_keeps_file_order_and_rejects_unknown_ids():
         select_questions(questions, ["q99"])
 
 
+@pytest.mark.parametrize("name", ["sqld", "holdout"])
+def test_every_evidence_span_sits_inside_one_chunk(name):
+    # A label that is missing from the notes, or split across two chunks, can never be
+    # retrieved and would quietly count as a search miss.
+    from eval.run_eval import SETS, load_chunks, load_questions
+
+    corpus_dir, questions_path = SETS[name]
+    questions = load_questions(questions_path)
+    chunks = load_chunks(800, 100, corpus_dir)
+
+    assert len({q["id"] for q in questions}) == len(questions)
+    unreachable = [
+        (q["id"], span)
+        for q in questions
+        for span in q["evidence"]
+        if not any(contains_evidence(c["text"], [span]) for c in chunks)
+    ]
+    assert unreachable == []
+
+
 def test_share_is_nan_for_an_empty_group():
     import math
 

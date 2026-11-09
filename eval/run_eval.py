@@ -1,4 +1,4 @@
-"""Measure Recap's RAG quality on a fixed SQLD note set.
+"""Measure Recap's RAG quality on a fixed SQLD note set, plus a holdout subject (--set holdout).
 
 Retrieval: for each chunk size, index eval/corpus and check whether the chunk holding
 each question's evidence span comes back in the top k (Hit@k, MRR).
@@ -33,6 +33,12 @@ from src.rag_eval import first_hit_rank, gate_failures, hit_rate_at_k, mean_reci
 EVAL_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = EVAL_DIR / "corpus"
 QUESTIONS_PATH = EVAL_DIR / "questions.jsonl"
+# "holdout" is a second subject the search weights, chunk size and prompts were never tuned on.
+# It checks whether the SQLD numbers carry over, so nothing should be changed by looking at it.
+SETS = {
+    "sqld": (CORPUS_DIR, QUESTIONS_PATH),
+    "holdout": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "questions.jsonl"),
+}
 CACHE_PATH = EVAL_DIR / ".cache" / "embeddings.json"
 RESULTS_DIR = EVAL_DIR / "results"
 GATES_PATH = EVAL_DIR / "gates.json"
@@ -62,8 +68,8 @@ JUDGE_PROMPT = """학습 노트 기반 Q&A 에이전트의 답변을 채점합�
 {{"correct": true, "grounded": true, "refused": false, "reason": "한 문장"}}"""  # noqa: E501 (prompt text)
 
 
-def load_questions() -> list[dict]:
-    return [json.loads(line) for line in QUESTIONS_PATH.read_text().splitlines() if line.strip()]
+def load_questions(path: Path = QUESTIONS_PATH) -> list[dict]:
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 def _share(count: int, rows: list) -> float:
@@ -81,10 +87,10 @@ def select_questions(questions: list[dict], ids: list[str] | None) -> list[dict]
     return [q for q in questions if q["id"] in set(ids)]
 
 
-def load_chunks(chunk_size: int, overlap: int) -> list[dict]:
+def load_chunks(chunk_size: int, overlap: int, corpus_dir: Path = CORPUS_DIR) -> list[dict]:
     # Same chunker the app uses when a note is uploaded, so the numbers describe real behaviour.
     chunks = []
-    for path in sorted(CORPUS_DIR.glob("*.md")):
+    for path in sorted(corpus_dir.glob("*.md")):
         for i, chunk in enumerate(chunk_document(path.read_text(encoding="utf-8"), chunk_size, overlap)):
             chunks.append({"source": path.name, "chunk_index": i, **chunk})
     return chunks
@@ -122,9 +128,11 @@ def build_index(chunks: list[dict], cache: EmbeddingCache) -> faiss.Index:
     return index
 
 
-def evaluate_retrieval(chunk_size: int, overlap: int, questions: list[dict], cache: EmbeddingCache) -> dict:
+def evaluate_retrieval(
+    chunk_size: int, overlap: int, questions: list[dict], cache: EmbeddingCache, corpus_dir: Path = CORPUS_DIR
+) -> dict:
     answerable = [q for q in questions if q["evidence"]]
-    chunks = load_chunks(chunk_size, overlap)
+    chunks = load_chunks(chunk_size, overlap, corpus_dir)
     index = build_index(chunks, cache)
     bm25 = BM25([embedding_text(c) for c in chunks])
     query_vectors = cache.embed([q["question"] for q in answerable])
@@ -199,9 +207,10 @@ def evaluate_answers(
     cache: EmbeddingCache,
     repeats: int = 1,
     judge_model: str | None = None,
+    corpus_dir: Path = CORPUS_DIR,
 ) -> dict:
     judge_model = judge_model or settings.judge_model
-    chunks = load_chunks(chunk_size, overlap)
+    chunks = load_chunks(chunk_size, overlap, corpus_dir)
     # search_notes reads indexes through this cache, so the agent searches the eval
     # corpus without touching data/projects.
     search._cache[EVAL_PROJECT_ID] = (build_index(chunks, cache), chunks)
@@ -289,15 +298,25 @@ def main() -> None:
         "--ids", nargs="+", help="grade only these question ids (--answers); retrieval still covers all"
     )
     parser.add_argument("--gate", action="store_true", help="exit with 1 if a metric misses eval/gates.json")
+    parser.add_argument("--set", choices=SETS, default="sqld", help="question set: sqld (tuned on) or holdout")
     args = parser.parse_args()
     if args.ids and args.gate:
         parser.error("--gate needs the full question set; drop --ids")
+    if args.gate and args.set != "sqld":
+        parser.error("eval/gates.json describes the sqld set; --gate only runs with --set sqld")
 
-    questions = load_questions()
+    corpus_dir, questions_path = SETS[args.set]
+    questions = load_questions(questions_path)
     cache = EmbeddingCache(CACHE_PATH)
-    report = {"run_at": datetime.now().isoformat(timespec="seconds"), "embedding_model": EMBEDDING_MODEL}
+    report = {
+        "run_at": datetime.now().isoformat(timespec="seconds"),
+        "set": args.set,
+        "embedding_model": EMBEDDING_MODEL,
+    }
 
-    report["retrieval"] = [evaluate_retrieval(size, args.overlap, questions, cache) for size in args.chunk_sizes]
+    report["retrieval"] = [
+        evaluate_retrieval(size, args.overlap, questions, cache, corpus_dir) for size in args.chunk_sizes
+    ]
     print(f"\nRetrieval ({len([q for q in questions if q['evidence']])} questions, overlap {args.overlap})")
     print("| chunk_size | chunks | Hit@1 | Hit@3 | Hit@5 | MRR |")
     print("|---:|---:|---:|---:|---:|---:|")
@@ -315,7 +334,9 @@ def main() -> None:
     if args.answers:
         print(f"\nAnswers (chunk_size {args.chunk_size})")
         picked = select_questions(questions, args.ids)
-        a = evaluate_answers(args.chunk_size, args.overlap, picked, cache, args.repeats, args.judge_model)
+        a = evaluate_answers(
+            args.chunk_size, args.overlap, picked, cache, args.repeats, args.judge_model, corpus_dir
+        )
         report["answers"] = a
         print(f"judge {a['judge_model']} (agent {a['chat_model']}) | agreement with agent-model grading "
               f"{a['judge_agreement']:.1%} | accuracy if agent graded itself {a['accuracy_by_agent_model']:.1%}")
@@ -326,7 +347,8 @@ def main() -> None:
               f"first feedback p50 {a['first_feedback_p50_s']}s | first token p50 {a['first_token_p50_s']}s")
 
     RESULTS_DIR.mkdir(exist_ok=True)
-    out = RESULTS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}.json"
+    suffix = "" if args.set == "sqld" else f"-{args.set}"
+    out = RESULTS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}{suffix}.json"
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print(f"\nSaved {out.relative_to(EVAL_DIR.parent)}")
 
