@@ -40,6 +40,11 @@ SETS = {
     "sqld": (CORPUS_DIR, QUESTIONS_PATH),
     "holdout": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "questions.jsonl"),
     "final": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "final.jsonl"),
+    # The answer gate turned away questions that describe a concept instead of naming it.
+    # gate-dev is for fixing that (with off-note questions in the same style, so loosening
+    # can't pass for free); final2 was committed before the fix and is run once, after it.
+    "gate-dev": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "gate_dev.jsonl"),
+    "final2": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "final2.jsonl"),
 }
 CACHE_PATH = EVAL_DIR / ".cache" / "embeddings.json"
 RESULTS_DIR = EVAL_DIR / "results"
