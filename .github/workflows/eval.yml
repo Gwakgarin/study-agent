@@ -1,28 +1,10 @@
 name: RAG quality gate
 
-# Runs the real agent against the eval set, so it costs a few cents of OpenAI usage.
-# That's why it only runs when the prompt, tools, retrieval or eval set change.
+# Runs the real agent on the SQLD set and grades with gpt-4o: about $0.5 to $1 a run.
+# Run it by hand (Actions > RAG quality gate > Run workflow) after changing prompts, tools,
+# search or the eval set. A path filter on push kept missing files (gate.py, hybrid.py)
+# and still charged for commits that only added questions.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/agent.py"
-      - "src/tools.py"
-      - "src/search.py"
-      - "src/ingest.py"
-      - "src/config.py"
-      - "eval/**"
-      - "!eval/results/**"
-  pull_request:
-    branches: [main]
-    paths:
-      - "src/agent.py"
-      - "src/tools.py"
-      - "src/search.py"
-      - "src/ingest.py"
-      - "src/config.py"
-      - "eval/**"
-      - "!eval/results/**"
   workflow_dispatch:
 
 concurrency:
