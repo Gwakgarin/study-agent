@@ -57,6 +57,9 @@ html, body, #root {
 body {
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   letter-spacing: -0.01em;
+  /* Korean wraps at spaces, not mid-word ("하나 / 요?"); long file names and URLs may still break. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   -webkit-font-smoothing: antialiased;
   background: var(--bg);
   color: var(--text-primary);
@@ -394,7 +397,6 @@ body {
   font-size: 0.95rem;
   line-height: 1.65;
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .chat-row-user .bubble {
@@ -546,6 +548,15 @@ body {
   color: var(--text-primary);
 }
 
+/* ---- top bar on the projects and login pages ---- */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 0 4px;
+}
+
 /* ---- projects page ---- */
 .projects-page {
   max-width: 900px;
@@ -581,6 +592,8 @@ body {
 
 .project-create input {
   flex: 1;
+  /* without this the input keeps its default width and pushes the button off a phone screen */
+  min-width: 0;
   border: 1px solid var(--border);
   background: var(--surface-alt);
   color: var(--text-primary);
@@ -1412,7 +1425,8 @@ body {
 
 .lp-legend {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -1421,6 +1435,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .lp-legend .end {
@@ -1587,6 +1602,18 @@ body {
   .lp-start h2 {
     font-size: 32px;
   }
+  /* Desktop-sized pills (56px tall) took a third of the cover's width each on a phone. */
+  .lp-btn {
+    padding: 13px 20px;
+    font-size: 15px;
+  }
+  .lp-btn.ghost {
+    padding: 12px 19px;
+  }
+  .lp-btn.small {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
   .lp-upload,
   .lp-choices {
     grid-template-columns: 1fr;
@@ -1596,6 +1623,23 @@ body {
   }
   .lp-chat {
     padding: 24px;
+  }
+  /* The hero app preview is hidden here, so the full-size glow behind it would tint the
+     whole cover. Keep a smaller light in the top-right corner instead. */
+  .lp-glow {
+    width: 460px;
+    height: 460px;
+    right: -220px;
+    top: -200px;
+    opacity: 0.45;
+    filter: blur(90px);
+  }
+  .lp-feature-visual::before,
+  .lp-choices::before {
+    width: 300px;
+    height: 240px;
+    opacity: 0.45;
+    filter: blur(80px);
   }
 }
 
@@ -2364,4 +2408,48 @@ body {
   text-align: center;
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+/* ---- phone sizes ----
+   One scale for phones, measured at 375px: titles 34/26/24, body 15-16, secondary 13,
+   nothing under 12. Tap targets follow Apple's 44pt guideline for main actions and stay
+   at least 36px for small inline ones. Inputs are 16px because iOS Safari zooms the page
+   into any input with smaller text. */
+@media (max-width: 640px) {
+  .lp-hero-copy h1 { font-size: 34px; }
+  .lp-hero-copy > p { font-size: 16px; }
+  .lp-feature h2,
+  .lp-start h2 { font-size: 26px; }
+  .lp-feature p,
+  .lp-start > p,
+  .lp-feature li { font-size: 15px; }
+  .lp-btn.small { padding: 10px 16px; }
+
+  .projects-content h1 { font-size: 24px; }
+  .projects-sub { font-size: 14px; }
+
+  .bubble,
+  .quiz-question { font-size: 15px; }
+
+  .chat-input-bar input,
+  .project-create input,
+  .auth-form input,
+  .modal input { font-size: 16px; }
+  .chat-input-bar input { min-height: 40px; }
+  .chat-input-bar button { min-height: 40px; min-width: 56px; font-size: 15px; }
+
+  .btn-primary { min-height: 44px; font-size: 15px; }
+  .sidebar-toggle,
+  .sidebar-close { min-width: 44px; min-height: 44px; }
+  .nav-user button { min-height: 36px; font-size: 13px; }
+  .guest-bar button { min-height: 36px; font-size: 14px; }
+  .sources-toggle { min-height: 36px; font-size: 13px; }
+  .practice-button { min-height: 36px; padding: 0 4px; font-size: 13px; }
+
+  .due-badge,
+  .quiz-badge,
+  .topic-meta,
+  .upload-hint,
+  .avatar,
+  .project-stats dt { font-size: 12px; }
 }
