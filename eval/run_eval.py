@@ -45,6 +45,10 @@ SETS = {
     # can't pass for free); final2 was committed before the fix and is run once, after it.
     "gate-dev": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "gate_dev.jsonl"),
     "final2": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "final2.jsonl"),
+    # Questions that describe a concept in everyday words, for query expansion. Written and
+    # committed before the expansion code existed; one set per subject.
+    "qx-sqld": (CORPUS_DIR, EVAL_DIR / "qx_sqld.jsonl"),
+    "qx-holdout": (EVAL_DIR / "holdout" / "corpus", EVAL_DIR / "holdout" / "qx.jsonl"),
 }
 CACHE_PATH = EVAL_DIR / ".cache" / "embeddings.json"
 RESULTS_DIR = EVAL_DIR / "results"

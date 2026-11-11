@@ -96,7 +96,7 @@ def test_select_questions_keeps_file_order_and_rejects_unknown_ids():
         select_questions(questions, ["q99"])
 
 
-@pytest.mark.parametrize("name", ["sqld", "holdout", "final", "gate-dev", "final2"])
+@pytest.mark.parametrize("name", ["sqld", "holdout", "final", "gate-dev", "final2", "qx-sqld", "qx-holdout"])
 def test_every_evidence_span_sits_inside_one_chunk(name):
     # A label that is missing from the notes, or split across two chunks, can never be
     # retrieved and would quietly count as a search miss.
@@ -124,7 +124,15 @@ def test_word_overlap_counts_shared_tokens():
 
 
 @pytest.mark.parametrize(
-    "name,prefix,count", [("holdout", "hr", 16), ("final", "hf", 16), ("gate-dev", "gd", 12), ("final2", "f2a", 6)]
+    "name,prefix,count",
+    [
+        ("holdout", "hr", 16),
+        ("final", "hf", 16),
+        ("gate-dev", "gd", 12),
+        ("final2", "f2a", 6),
+        ("qx-sqld", "qs", 12),
+        ("qx-holdout", "qh", 12),
+    ],
 )
 def test_hard_reworded_holdout_questions_stay_reworded(name, prefix, count):
     # hr/hf questions exist to test search on wording the notes never use; if an edit lets

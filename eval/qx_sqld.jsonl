@@ -1,0 +1,12 @@
+{"id": "qs01", "question": "빈칸인지 확인할 때 등호 대신 써야 하는 표현은?", "evidence": ["따라서 NULL 여부를 확인할 때는 = NULL이 아니라 IS NULL을 사용해야 한다"], "answer": "IS NULL"}
+{"id": "qs02", "question": "공동 1등이 둘이어도 바로 뒤 사람을 2등으로 매기는 함수는?", "evidence": ["DENSE_RANK는 동일한 값에 같은 순위를 부여하지만 다음 순위를 건너뛰지 않는다"], "answer": "DENSE_RANK"}
+{"id": "qs03", "question": "지난달 대비 증감처럼 바로 앞 줄 값을 끌어와서 비교하는 함수는?", "evidence": ["LAG는 파티션별 윈도우에서 이전 몇 번째 행의 값을 가져오고"], "answer": "LAG"}
+{"id": "qs04", "question": "그룹 기준을 오른쪽부터 하나씩 빼 가며 중간 합계와 마지막 총합까지 한 번에 뽑는 구문은?", "evidence": ["ROLLUP은 GROUP BY에 지정한 컬럼 순서대로 계층별 소계와 전체 합계를 구한다"], "answer": "ROLLUP"}
+{"id": "qs05", "question": "표의 틀은 그대로 두고 안에 든 걸 싹 비우는데 취소는 안 되는 명령은?", "evidence": ["TRUNCATE는 테이블 구조는 남기고 모든 데이터를 삭제하며"], "answer": "TRUNCATE"}
+{"id": "qs06", "question": "질의문만 저장해 두고 민감한 열은 가려서 보여줄 수 있는 가상의 표는?", "evidence": ["뷰는 실제 데이터를 갖지 않는 가상 테이블로"], "answer": "뷰"}
+{"id": "qs07", "question": "맞는 줄이 있으면 고치고 없으면 새로 끼워 넣는 걸 한 문장으로 처리하는 구문은?", "evidence": ["MERGE 문은 대상 테이블에 조건에 맞는 데이터가 있으면 UPDATE하고"], "answer": "MERGE"}
+{"id": "qs08", "question": "한쪽 표로 찾기용 표를 메모리에 먼저 만들어 놓고 다른 쪽을 훑으며 맞춰 보는 조인 방식은?", "evidence": ["Hash Join은 작은 테이블(선행 테이블, Build Input)로 해시 테이블을 만들고"], "answer": "Hash Join"}
+{"id": "qs09", "question": "두 표의 모든 경우의 수를 곱하듯 전부 짝지어 내놓는 조인은?", "evidence": ["CROSS JOIN은 조인 조건 없이 두 테이블의 모든 행을 조합하는 카티션 곱을 반환한다"], "answer": "CROSS JOIN"}
+{"id": "qs10", "question": "읽기를 반복하는 사이 남이 줄을 추가해 유령처럼 줄이 생기는 문제는?", "evidence": ["Phantom Read는 같은 조건으로 두 번 조회했을 때 첫 번째 조회에 없던 행이 새로 나타나는 것이다"], "answer": "Phantom Read"}
+{"id": "qs11", "question": "남녀 구분처럼 값 종류가 몇 개 안 되는 열에 알맞고 분석용 저장소에서 주로 쓰는 색인은?", "evidence": ["비트맵 인덱스는 성별처럼 값의 종류가 적은 컬럼에 적합하며"], "answer": "비트맵 인덱스"}
+{"id": "qs12", "question": "조직도처럼 윗사람-아랫사람이 이어진 자료에서 맨 위를 정해 놓고 아래로 따라 내려가며 읽는 질의는?", "evidence": ["계층형 질의는 테이블에 계층형 데이터가 있을 때 사용한다"], "answer": "계층형 질의"}
