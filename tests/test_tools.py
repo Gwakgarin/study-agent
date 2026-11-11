@@ -1,6 +1,14 @@
 import json
 
+import pytest
+
 from src import tools
+
+
+@pytest.fixture(autouse=True)
+def _no_expansion_calls(monkeypatch):
+    # Expansion would call the model; tests that want it turn it on with their own stub.
+    monkeypatch.setattr(tools, "expand_query", lambda question: [])
 
 
 def test_search_notes_delegates_to_search_module(monkeypatch):
@@ -38,6 +46,43 @@ def test_search_notes_retries_with_the_users_question_when_the_query_misses(monk
 
     assert tools.search_notes("p1", "빈 문자열", _question="NULL이 뭐야?") == [{"text": "NULL이 뭐야?"}]
     assert searched == ["빈 문자열", "NULL이 뭐야?"]
+
+
+def test_search_notes_searches_again_with_expanded_terms_when_the_gate_says_no(monkeypatch):
+    searched = []
+
+    def fake_search(project_id, query, k):
+        searched.append(query)
+        return [{"text": "회고" if "스프린트 회고" in query else "x"}]
+
+    monkeypatch.setattr(tools, "_search_notes", fake_search)
+    monkeypatch.setattr(tools, "expand_query", lambda question: ["스프린트 회고", "KPT"])
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: chunks[0]["text"] == "회고")
+
+    results = tools.search_notes("p1", "키워드", _question="한 주기 끝나고 되짚는 모임은?")
+
+    assert results == [{"text": "회고"}]
+    assert searched[-1] == "한 주기 끝나고 되짚는 모임은? 스프린트 회고 KPT"
+
+
+def test_search_notes_stays_empty_when_expanded_search_still_fails_the_gate(monkeypatch):
+    monkeypatch.setattr(tools, "_search_notes", lambda project_id, query, k: [{"text": "x"}])
+    monkeypatch.setattr(tools, "expand_query", lambda question: ["용어"])
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: False)
+
+    assert tools.search_notes("p1", "트리거란") == []
+
+
+def test_search_notes_does_not_expand_when_turned_off(monkeypatch):
+    def boom(question):
+        raise AssertionError("expand_query should not run")
+
+    monkeypatch.setattr(tools, "_search_notes", lambda project_id, query, k: [{"text": "x"}])
+    monkeypatch.setattr(tools, "expand_query", boom)
+    monkeypatch.setattr(tools, "can_answer", lambda query, chunks, question=None: False)
+    monkeypatch.setattr(tools.settings, "query_expansion", False)
+
+    assert tools.search_notes("p1", "트리거란") == []
 
 
 def test_search_notes_skips_gate_when_disabled(monkeypatch):

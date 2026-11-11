@@ -5,6 +5,7 @@ import json
 import uuid
 
 from src.config import settings
+from src.expand import expand_query
 from src.gate import can_answer
 from src.ingest import get_client
 from src.search import search_notes as _search_notes
@@ -23,6 +24,14 @@ def search_notes(project_id: str, query: str, k: int = 5, _question: str | None 
         retry = _search_notes(project_id, _question, k=k)
         if can_answer(_question, retry):
             return retry
+    # Still nothing: the question may describe a concept instead of naming it.
+    if settings.query_expansion:
+        terms = expand_query(_question or query)
+        if terms:
+            expanded = f"{_question or query} {' '.join(terms)}"
+            extra = _search_notes(project_id, expanded, k=k)
+            if can_answer(_question or query, extra):
+                return extra
     return []
 
 

@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Reads retrieved notes and decides whether they can answer; when not, the agent gets no results.
     gate_model: str = "gpt-4o-mini"
     answer_gate: bool = True
+    # Last resort when the gate turns the first two searches away: search again with likely
+    # textbook terms added (src/expand.py). Costs one extra model call, and only on those misses.
+    query_expansion: bool = True
+    expand_model: str = "gpt-4o-mini"
 
     # The OpenAI SDK already retries connection errors, 429 and 5xx with backoff.
     openai_timeout_seconds: float = 30.0
