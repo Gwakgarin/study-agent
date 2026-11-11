@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 
-// Numbers from eval/ (SQLD notes, 32 answerable questions); keep in sync with the README.
+// Numbers from eval/ (SQLD notes, 102 questions, 2 runs); keep in sync with the README.
 const STATS = [
-  { value: "96.9%", label: "답변 정확도" },
-  { value: "100%", label: "맞는 노트 찾기" },
-  { value: "2.6초", label: "답변 시간" },
+  { value: "97.6%", label: "답변 정확도" },
+  { value: "97.6%", label: "맞는 노트 찾기" },
+  { value: "100%", label: "노트 밖 질문 거절" },
 ];
 
 const UPLOADS = [
@@ -191,7 +191,7 @@ export default function Landing() {
             <div className="lp-stats">
               {STATS.map((s) => <div key={s.label}><b>{s.value}</b><span>{s.label}</span></div>)}
             </div>
-            <small className="lp-stats-note">SQLD 노트 6개, 질문 32개로 자체 측정</small>
+            <small className="lp-stats-note">SQLD 노트 6개, 질문 102개로 자체 측정</small>
           </div>
           <AppPreview />
         </div>
@@ -210,7 +210,7 @@ export default function Landing() {
           label="근거 있는 답변"
           title="내 노트로만 답해요"
           desc="답마다 참고한 노트와 근거 문장을 같이 보여줘요. 노트에 없는 내용이면 지어내지 않고 모른다고 해요."
-          points={["답변마다 출처 노트 표시", "노트 밖 질문은 모른다고 답하기", "질문 32개 기준 답변 정확도 96.9%"]}
+          points={["답변마다 출처 노트 표시", "노트 밖 질문은 모른다고 답하기", "질문 102개 기준 답변 정확도 97.6%"]}
           visual={<AnswerVisual />}
         />
         <Feature
