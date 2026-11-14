@@ -24,8 +24,15 @@ export default function RequireAuth({ children }) {
     fetchMe()
       .catch(() => startGuest())
       .then((user) => setState({ status: "in", user }))
-      // e.g. this address already started today's share of guests: explain on the login page.
-      .catch((err) => setState({ status: "out", user: null, notice: err.status === 429 ? err.message : null }));
+      // Explain on the login page why the guest start failed: the daily limit says so itself,
+      // anything else (server error, blocked cookies, offline) gets a general line.
+      .catch((err) =>
+        setState({
+          status: "out",
+          user: null,
+          notice: err.status === 429 ? err.message : "둘러보기를 시작하지 못했어요. 잠시 후 다시 시도하거나 가입해서 이어 주세요.",
+        }),
+      );
   }, []);
 
   if (state.status === "loading") return null;
