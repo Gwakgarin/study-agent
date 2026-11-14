@@ -654,7 +654,8 @@ body {
 .lp {
   background: var(--bg);
   color: var(--text-primary);
-  overflow-x: hidden;
+  /* clip, not hidden: hidden would make this a scroll container and break the sticky scenes */
+  overflow-x: clip;
 }
 
 .lp-hero {
@@ -1058,7 +1059,12 @@ body {
 .lp-feature-text {
   flex: 0 0 auto;
   width: 100%;
-  max-width: 520px;
+  max-width: 600px;
+}
+
+.lp-feature h2,
+.lp-feature p {
+  text-wrap: balance;
 }
 
 .lp-label {
@@ -1103,14 +1109,6 @@ body {
   color: #C9CDD3;
 }
 
-.lp-feature li::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
 
 .lp-feature-visual {
   position: relative;
@@ -1599,7 +1597,7 @@ body {
   color: var(--text-muted);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 880px) {
   .lp-hero-grid {
     grid-template-columns: 1fr;
   }
@@ -2485,4 +2483,217 @@ body {
   .upload-hint,
   .avatar,
   .project-stats dt { font-size: 12px; }
+}
+
+/* ---- scroll scenes ---- */
+/* The screen stays put while the page scrolls; progress (0 to 1) drives what is shown. */
+.lp-pull {
+  position: relative;
+  height: 300vh;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lp-pull-stick {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 36px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+.lp-pull-stick h2 {
+  text-wrap: balance;
+  margin: 0;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+}
+
+.lp-pull-l { text-align: right; }
+
+.lp-pull-mid {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.lp-pull-mid .br {
+  font-size: 150px;
+  font-weight: 200;
+  line-height: 1;
+  color: var(--text-muted);
+  transform: scaleY(1.5);
+}
+
+.lp-pull-chips {
+  width: 400px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lp-pull-chips .chip {
+  --on: clamp(0, calc((var(--p) - var(--s)) * 10), 1);
+  opacity: var(--on);
+  transform: translateY(calc((1 - var(--on)) * 18px)) scale(calc(0.9 + var(--on) * 0.1));
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lp-pull-note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 20%;
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-secondary);
+  opacity: clamp(0, calc((var(--p) - 0.82) * 10), 1);
+  transform: translateY(calc((1 - clamp(0, calc((var(--p) - 0.82) * 10), 1)) * 12px));
+}
+
+.lp-pin {
+  position: relative;
+  height: 420vh;
+}
+
+.lp-pin-stick {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 72px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+}
+
+.lp-pin-texts {
+  display: grid;
+  width: 100%;
+  max-width: 620px;
+  flex: none;
+}
+
+.lp-pin-text {
+  grid-area: 1 / 1;
+  will-change: opacity, transform;
+}
+
+.lp-pin-text h2 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lp-pin-text p {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  text-wrap: balance;
+}
+
+.lp-pin-text ul {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: #C9CDD3;
+}
+
+.lp-pin-visuals {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 14px;
+}
+
+.lp-pin-visual {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  justify-content: center;
+  transform-origin: 50% 0;
+  will-change: opacity, transform;
+}
+
+.lp-pin-visual::before { display: none; }
+.lp-pin-visual {
+  text-align: left;
+  /* left and right are both 0, so auto margins centre the 680px card inside the stage */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* first paint, before the script has placed anything */
+.lp-pin-text:not(:first-child),
+.lp-pin-visual:not(:first-child) { opacity: 0; }
+
+/* Plain fade-ups: hero on load, the last section when it comes into view. */
+@keyframes lp-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.lp-hero-copy > * {
+  animation: lp-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.lp-hero-copy > :nth-child(2) { animation-delay: 0.08s; }
+.lp-hero-copy > :nth-child(3) { animation-delay: 0.16s; }
+.lp-hero-copy > :nth-child(4) { animation-delay: 0.24s; }
+.lp-hero-copy > :nth-child(5) { animation-delay: 0.3s; }
+
+@media (max-width: 900px) {
+  .lp-pull { height: auto; }
+  .lp-pull-stick {
+    position: static;
+    height: auto;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 72px 20px;
+    gap: 20px;
+  }
+  .lp-pull-l, .lp-pull-r { text-align: center; }
+  .lp-pull-stick h2 { font-size: 26px; }
+  .lp-pull-mid .br { display: none; }
+  .lp-pull-chips { width: 100%; }
+  .lp-pull-chips .chip { opacity: 1; transform: none; }
+  .lp-pull-note { position: static; opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-hero-copy > * { animation: none; }
+  .lp-pull { height: auto; }
+  .lp-pull-stick { position: static; height: auto; padding: 72px 48px; }
+  .lp-pull-chips .chip, .lp-pull-note { opacity: 1; transform: none; }
+  .lp-pull-note { position: static; }
 }
